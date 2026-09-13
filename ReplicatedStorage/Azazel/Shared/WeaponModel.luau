@@ -182,7 +182,8 @@ function WeaponModel.Attach(character: Model, model: Model, cfg): Motor6D?
     end
     WeaponModel.Detach(character)
 
-    handle.CFrame = hand.CFrame * rig.HandOffset * cfg.Grip
+    model:PivotTo(hand.CFrame * rig.HandOffset * cfg.Grip)
+    model.Parent = character
     local motor = Instance.new("Motor6D")
     motor.Name = MOTOR_NAME
     motor.Part0 = hand
@@ -190,7 +191,6 @@ function WeaponModel.Attach(character: Model, model: Model, cfg): Motor6D?
     motor.C0 = rig.HandOffset
     motor.C1 = cfg.Grip:Inverse()
     motor.Parent = hand
-    model.Parent = character
     return motor
 end
 

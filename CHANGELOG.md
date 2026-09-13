@@ -2,6 +2,11 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.1.0-alpha.5
+
+- Weapon models are moved with PivotTo and parented before the Motor6D is created, so welded
+  parts keep their offsets (the placeholder barrel no longer floats away).
+
 ## 0.1.0-alpha.4
 
 - Tracer trail was 6 studs wide and ~100 studs long; the trail now matches the tracer width
