@@ -2,6 +2,13 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.1.0-alpha.9
+
+- Client Quality module: Low/Medium/High from the saved graphics level or measured FPS; effects
+  read per-level limits (tracer density, trail, distance, live cap; casings/impacts/flash/shake
+  keys reserved for the effects milestone).
+- Settings.Debug.ServerTracers: Studio-only red lines drawn by the server for the Server view.
+
 ## 0.1.0-alpha.8
 
 - Thicker, brighter default tracer (0.2 studs wide, 5 long), closer to Phantom Forces.

@@ -26,6 +26,8 @@ able to go back to it. If two commits share a version, "go back to 0.3.2" means 
 - **Major** goes up when games using the package need to change their own code to update.
   Minor and Patch go back to 0. Also used for the first public release (1.0.0).
 - **Build** goes up on every commit inside the same channel and resets when the channel changes.
+- While a version is still in `dev`, `alpha` or `beta`, features that belong to its planned
+  milestone only bump Build. Minor goes up when the milestone closes and the next one starts.
 
 ## Channels
 

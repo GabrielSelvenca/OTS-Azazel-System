@@ -1,6 +1,7 @@
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local package = ReplicatedStorage:WaitForChild("Azazel")
 local Settings = require(package.Config.Settings)
@@ -127,6 +128,39 @@ local function damageVictim(player: Player, cfg, hitPart: BasePart, origin: Vect
     Remotes.FireClient("HitConfirmed", player, zone, damage, killed)
 end
 
+local DEBUG_FOLDER = "AzazelServerDebug"
+local DEBUG_TRACER_LIFETIME = 0.15
+
+local function debugTracers(origin: Vector3, ends: { Vector3 })
+    if not Settings.Debug.ServerTracers or not RunService:IsStudio() then
+        return
+    end
+    local folder = workspace:FindFirstChild(DEBUG_FOLDER)
+    if not folder then
+        folder = Instance.new("Folder")
+        folder.Name = DEBUG_FOLDER
+        folder.Parent = workspace
+    end
+    for _, endPoint in ends do
+        local distance = (endPoint - origin).Magnitude
+        if distance < 0.5 then
+            continue
+        end
+        local part = Instance.new("Part")
+        part.Anchored = true
+        part.CanCollide = false
+        part.CanQuery = false
+        part.CanTouch = false
+        part.CastShadow = false
+        part.Material = Enum.Material.Neon
+        part.Color = Color3.fromRGB(255, 80, 80)
+        part.Size = Vector3.new(0.08, 0.08, distance)
+        part.CFrame = CFrame.lookAt(origin, endPoint) * CFrame.new(0, 0, -distance / 2)
+        part.Parent = folder
+        Debris:AddItem(part, DEBUG_TRACER_LIFETIME)
+    end
+end
+
 local function raycastParamsFor(character: Model): RaycastParams
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
@@ -230,6 +264,7 @@ local function onFire(player: Player, origin: Vector3, direction: Vector3, seq: 
     local muzzle = WeaponModel.MuzzlePosition(weaponModel) or origin
     Remotes.FireAllExcept("ShotFired", player, player, cfg.Name, muzzle, ends, hits)
     Combat.Shot:Fire(player, cfg, origin, ends, hits)
+    debugTracers(muzzle, ends)
 
     if slot.Ammo <= 0 then
         Inventory.PushState(player)

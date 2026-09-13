@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local Client = require(script.Parent.Parent)
+local Quality = require(script.Parent.Parent.Quality)
 local package = script.Parent.Parent.Parent
 local Settings = require(package.Config.Settings)
 local WeaponConfig = require(package.Config.WeaponConfig)
@@ -99,12 +100,17 @@ end
 
 local function spawnTracer(from: Vector3, to: Vector3, tracer)
     local cache = ensureCache()
-    if not cache or #liveTracers >= EffectSettings.TracerMaxLive then
+    local quality = Quality.Get()
+    if not cache or #liveTracers >= quality.TracerMaxLive then
         return
     end
     local offset = to - from
     local distance = offset.Magnitude
     if distance < 1 then
+        return
+    end
+    local cameraPosition = workspace.CurrentCamera.CFrame.Position
+    if (from - cameraPosition).Magnitude > quality.TracerMaxDistance and (to - cameraPosition).Magnitude > quality.TracerMaxDistance then
         return
     end
     local direction = offset / distance
@@ -121,7 +127,7 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
             back.Position = Vector3.new(0, -tracer.Width / 2, 0)
         end
         trail.Color = ColorSequence.new(tracer.Color)
-        trail.Enabled = true
+        trail.Enabled = quality.TracerTrail
     end
     local live = {
         Part = part,
@@ -165,7 +171,8 @@ end
 
 local function drawShot(shooter: Player, cfg, muzzle: Vector3, ends: { Vector3 })
     local tracer = cfg.Effects.Tracer
-    if not tracer.Enabled or not shouldDraw(shooter, tracer.Every) then
+    local every = math.max(tracer.Every, Quality.Get().TracerEvery)
+    if not tracer.Enabled or not shouldDraw(shooter, every) then
         return
     end
     for _, endPoint in ends do

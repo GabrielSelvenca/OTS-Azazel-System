@@ -92,6 +92,18 @@ Settings.Animations = {
     FadeTime = 0.1,
 }
 
+Settings.Quality = {
+    Source = "Auto",
+    SavedLevels = { Medium = 4, High = 8 },
+    AutoFps = { Medium = 30, High = 50, Hysteresis = 6 },
+    SampleSeconds = 4,
+    Levels = {
+        Low = { TracerEvery = 3, TracerTrail = false, TracerMaxDistance = 250, TracerMaxLive = 16, Casings = false, Impacts = false, MuzzleFlash = true, Shake = false },
+        Medium = { TracerEvery = 1, TracerTrail = true, TracerMaxDistance = 600, TracerMaxLive = 32, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
+        High = { TracerEvery = 1, TracerTrail = true, TracerMaxDistance = 2500, TracerMaxLive = 64, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
+    },
+}
+
 Settings.Effects = {
     TracerMaxLive = 64,
     CasingLifetime = 2,
@@ -102,6 +114,7 @@ Settings.Effects = {
 Settings.Debug = {
     LogRejections = true,
     PrintBoot = true,
+    ServerTracers = true,
 }
 
 Settings.Strings = {

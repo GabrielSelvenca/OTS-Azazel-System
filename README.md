@@ -170,6 +170,25 @@ Per weapon, in degrees:
 The client runs the same math only to size the crosshair. The server rolls the actual
 direction, per pellet, with its own random generator.
 
+## Quality levels
+
+Effects scale with the player. `ReplicatedStorage/Azazel/Client/Quality` reads the graphics
+level saved in the Roblox settings (`Settings.Quality.SavedLevels` maps 1..10 to Low, Medium,
+High). When the player leaves it on Automatic, the module measures the frame rate over
+`SampleSeconds` and picks a level with hysteresis (`AutoFps`). Each level is a table in
+`Settings.Quality.Levels` that the effect controllers read: tracer density, trail, max distance,
+live part cap, casings, impacts, muzzle flash, camera shake.
+
+```lua
+local Quality = require(game.ReplicatedStorage.Azazel.Client.Quality)
+Quality.Level                 -- "Low" | "Medium" | "High"
+Quality.Get()                 -- the active level table
+Quality.Set("Low")            -- force a level; Quality.Set(nil) goes back to automatic
+Quality.Changed:Connect(function(level, values) end)
+```
+
+Set `Settings.Quality.Source` to a fixed level to ignore the player setting entirely.
+
 ## Security model
 
 The client sends three things per shot: an origin, a unit direction and a sequence number.
@@ -180,6 +199,9 @@ allows, no ammo, origin farther than `Settings.Server.MaxOriginDistance` studs f
 direction not unit or not finite, direction more than `MaxYawDelta` degrees away from where the
 character faces, pitch above `MaxPitch`. Rejections resync the client and, with
 `Settings.Debug.LogRejections`, print to the Output.
+
+`Settings.Debug.ServerTracers` draws a red line per shot from the server, Studio only, so the
+Server view of a playtest shows where the server thinks bullets went. It never runs live.
 
 Every remote is declared in `Shared/Remotes.luau` with a payload schema and a per player rate
 limit. `Settings.Server.KickOnAbuse` kicks after `AbuseThreshold` violations. The package has
