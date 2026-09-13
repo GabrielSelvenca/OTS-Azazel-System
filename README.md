@@ -208,14 +208,19 @@ Everything tunable that is not per weapon lives in `ReplicatedStorage/Azazel/Con
 one table per area: `Camera`, `Viewmodel`, `Keys`, `Hud`, `Server`, `Animations`, `Quality`,
 `Effects`, `Debug`, `Strings`. Weapons and equipment have their own modules under `Config/`.
 
-`Settings.Effects.Tracer` is the default look of every tracer (color, width, length, speed, trail
-fade, light). A weapon or class overrides any of those fields in `Effects.Tracer`.
+`Settings.Effects.Tracer` is the default look of every tracer (color, width, length, speed, style,
+trail fade, light). A weapon or class overrides any of those fields in `Effects.Tracer`. Tracers
+are drawn at any distance so players can see where a shot came from; `MinPixelWidth` keeps a far
+one at least that wide on screen. `Style` is `"Rod"` (Neon part) or `"Beam"` (flat strip that can
+carry a bullet texture from `Beam.Texture`).
 
 The tracer light is a `PointLight` without shadows. With `Lighting.Technology` on Voxel or
 Compatibility, Roblox computes point lights on a 4 stud grid and a moving light shows up as
 blocky patches on the ground; set it to ShadowMap or Future (Studio, Lighting properties; it is
 not scriptable). `Doctor()` warns about it. Turn the light off with
-`Settings.Effects.Tracer.Light.Enabled = false`, or per quality level with `TracerLight`.
+`Settings.Effects.Tracer.Light.Enabled = false`, or limit it per quality level with
+`TracerLightDistance` (studs from the camera; 0 disables). The light color is fixed
+(`Light.Color`) so a colored tracer never tints the map.
 
 `Settings.Debug.Enabled` is the master switch for the visual debug helpers (`ServerTracers`,
 `ClientShots`), which are Studio only either way. `PrintBoot` and `LogRejections` are independent
@@ -227,8 +232,8 @@ Effects scale with the player. `ReplicatedStorage/Azazel/Client/Quality` reads t
 level saved in the Roblox settings (`Settings.Quality.SavedLevels` maps 1..10 to Low, Medium,
 High). When the player leaves it on Automatic, the module measures the frame rate over
 `SampleSeconds` and picks a level with hysteresis (`AutoFps`). Each level is a table in
-`Settings.Quality.Levels` that the effect controllers read: tracer density, trail, max distance,
-live part cap, casings, impacts, muzzle flash, camera shake.
+`Settings.Quality.Levels` that the effect controllers read: tracer density, trail, light
+distance, live part cap, casings, impacts, muzzle flash, camera shake.
 
 ```lua
 local Quality = require(game.ReplicatedStorage.Azazel.Client.Quality)

@@ -125,15 +125,18 @@ Settings.Quality = {
     AutoFps = { Medium = 30, High = 50, Hysteresis = 6 },
     SampleSeconds = 4,
     Levels = {
-        Low = { TracerEvery = 3, TracerTrail = false, TracerLight = false, TracerMaxDistance = 250, TracerMaxLive = 16, Casings = false, Impacts = false, MuzzleFlash = true, Shake = false },
-        Medium = { TracerEvery = 1, TracerTrail = true, TracerLight = true, TracerMaxDistance = 600, TracerMaxLive = 32, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
-        High = { TracerEvery = 1, TracerTrail = true, TracerLight = true, TracerMaxDistance = 2500, TracerMaxLive = 64, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
+        Low = { TracerEvery = 3, TracerTrail = false, TracerLightDistance = 0, TracerMaxLive = 16, Casings = false, Impacts = false, MuzzleFlash = true, Shake = false },
+        Medium = { TracerEvery = 1, TracerTrail = true, TracerLightDistance = 150, TracerMaxLive = 32, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
+        High = { TracerEvery = 1, TracerTrail = true, TracerLightDistance = 300, TracerMaxLive = 64, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
     },
 }
 
 -- Visual effects. Tracer is the default look of every bullet tracer; any weapon or class can
--- override the same fields under its Effects.Tracer. The light is a PointLight without shadows
--- and looks blocky with Lighting.Technology on Voxel or Compatibility; use ShadowMap or Future.
+-- override the same fields under its Effects.Tracer. Tracers are drawn at any distance (only
+-- the live cap and TracerEvery per quality level limit them); MinPixelWidth keeps a far one
+-- visible on screen. The light is a PointLight without shadows, only within TracerLightDistance
+-- of the camera, with a fixed color so it never reads as the tracer color. It looks blocky with
+-- Lighting.Technology on Voxel or Compatibility; use ShadowMap or Future.
 Settings.Effects = {
     FolderName = "AzazelEffects",                          -- workspace folder that holds pooled parts
     PoolSizes = { Tracer = 32, Casing = 24, Impact = 16 }, -- parts created up front per effect
@@ -143,8 +146,13 @@ Settings.Effects = {
         Width = 0.2,                                       -- studs
         Length = 5,                                        -- visible rod length, studs
         Speed = 1200,                                      -- studs per second
-        Style = "Trail",                                   -- only "Trail" exists today
-        Material = Enum.Material.Neon,
+        MinPixelWidth = 2,                                 -- never thinner than this on screen
+        Style = "Rod",                                     -- "Rod" (Neon part) | "Beam" (flat strip, can carry a texture)
+        Material = Enum.Material.Neon,                     -- Rod style
+        Beam = {                                           -- Beam style
+            Texture = "",                                  -- "rbxassetid://..." bullet texture, empty for a plain strip
+            TextureLength = 1,
+        },
         Trail = {                                          -- streak behind the rod
             Lifetime = 0.06,                               -- seconds; long enough to bridge the muzzle and the first frames
             Transparency = NumberSequence.new({
@@ -155,8 +163,9 @@ Settings.Effects = {
         },
         Light = {
             Enabled = true,
-            Brightness = 1.5,
-            Range = 10,
+            Color = Color3.fromRGB(255, 225, 170),        -- fixed, independent of the tracer color
+            Brightness = 0.5,
+            Range = 8,
             Shadows = false,
         },
     },

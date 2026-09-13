@@ -78,9 +78,39 @@ local function buildTracerTemplate(): BasePart
     light.Shadows = TracerSettings.Light.Shadows
     light.Brightness = TracerSettings.Light.Brightness
     light.Range = TracerSettings.Light.Range
-    light.Color = TracerSettings.Color
+    light.Color = TracerSettings.Light.Color
     light.Parent = part
+
+    local tail = Instance.new("Attachment")
+    tail.Name = "Tail"
+    tail.Position = Vector3.new(0, 0, TracerSettings.Length / 2)
+    tail.Parent = part
+    local head = Instance.new("Attachment")
+    head.Name = "Head"
+    head.Position = Vector3.new(0, 0, -TracerSettings.Length / 2)
+    head.Parent = part
+
+    local beam = Instance.new("Beam")
+    beam.Name = "Beam"
+    beam.Attachment0 = tail
+    beam.Attachment1 = head
+    beam.Enabled = false
+    beam.FaceCamera = true
+    beam.LightEmission = 1
+    beam.LightInfluence = 0
+    beam.Segments = 1
+    beam.Width0 = TracerSettings.Width
+    beam.Width1 = TracerSettings.Width
+    beam.Texture = TracerSettings.Beam.Texture
+    beam.TextureLength = TracerSettings.Beam.TextureLength
+    beam.Color = ColorSequence.new(TracerSettings.Color)
+    beam.Parent = part
     return part
+end
+
+local function studsPerPixel(camera: Camera, position: Vector3): number
+    local distance = (position - camera.CFrame.Position).Magnitude
+    return 2 * distance * math.tan(math.rad(camera.FieldOfView / 2)) / math.max(camera.ViewportSize.Y, 1)
 end
 
 local function ensureCache()
@@ -98,12 +128,26 @@ local function ensureCache()
     return result
 end
 
-local function placeTracer(tracer)
+local function placeTracer(tracer, camera: Camera, quality)
     local tailDistance = math.max(tracer.Traveled - tracer.Length, 0)
     local tail = tracer.From + tracer.Direction * tailDistance
     local rod = math.max(tracer.Traveled - tailDistance, 0.05)
-    tracer.Part.Size = Vector3.new(tracer.Width, tracer.Width, rod)
+    local center = tail + tracer.Direction * (rod / 2)
+    local width = math.max(tracer.Width, studsPerPixel(camera, center) * tracer.MinPixelWidth)
+    tracer.Part.Size = Vector3.new(width, width, rod)
     tracer.Part.CFrame = CFrame.lookAt(tail, tail + tracer.Direction) * CFrame.new(0, 0, -rod / 2)
+    if tracer.Beam then
+        tracer.Tail.Position = Vector3.new(0, 0, rod / 2)
+        tracer.Head.Position = Vector3.new(0, 0, -rod / 2)
+        tracer.Beam.Width0 = width
+        tracer.Beam.Width1 = width
+    end
+    if tracer.Light then
+        local lit = tracer.LightWanted and (center - camera.CFrame.Position).Magnitude <= quality.TracerLightDistance
+        if tracer.Light.Enabled ~= lit then
+            tracer.Light.Enabled = lit
+        end
+    end
 end
 
 local function spawnTracer(from: Vector3, to: Vector3, tracer)
@@ -117,14 +161,21 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
     if distance < 1 then
         return
     end
-    local cameraPosition = workspace.CurrentCamera.CFrame.Position
-    if (from - cameraPosition).Magnitude > quality.TracerMaxDistance and (to - cameraPosition).Magnitude > quality.TracerMaxDistance then
-        return
-    end
     local direction = offset / distance
     local part = cache:GetPart()
     part.Size = Vector3.new(tracer.Width, tracer.Width, tracer.Length)
     part.Color = tracer.Color
+    local useBeam = tracer.Style == "Beam"
+    local beam = part:FindFirstChildOfClass("Beam")
+    part.Transparency = if useBeam and beam then 1 else 0
+    if beam then
+        if useBeam then
+            beam.Color = ColorSequence.new(tracer.Color)
+            beam.Texture = if tracer.Beam then tracer.Beam.Texture else ""
+            beam.TextureLength = if tracer.Beam then tracer.Beam.TextureLength else 1
+        end
+        beam.Enabled = useBeam
+    end
     local trail = part:FindFirstChildOfClass("Trail")
     if trail then
         trail.Lifetime = if tracer.Trail then tracer.Trail.Lifetime else TracerSettings.Trail.Lifetime
@@ -139,15 +190,15 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
     end
     local light = part:FindFirstChildOfClass("PointLight")
     local lightConfig = tracer.Light
+    local lightWanted = light ~= nil and quality.TracerLightDistance > 0 and lightConfig ~= nil and lightConfig.Enabled == true
     if light then
-        local wanted = quality.TracerLight and lightConfig ~= nil and lightConfig.Enabled == true
-        if wanted then
+        light.Enabled = false
+        if lightWanted then
             light.Brightness = lightConfig.Brightness
             light.Range = lightConfig.Range
             light.Shadows = lightConfig.Shadows == true
-            light.Color = tracer.Color
+            light.Color = lightConfig.Color or TracerSettings.Light.Color
         end
-        light.Enabled = wanted
     end
     local live = {
         Part = part,
@@ -157,11 +208,17 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
         Traveled = math.min(tracer.Length, distance),
         Speed = tracer.Speed,
         Length = tracer.Length,
+        Width = tracer.Width,
+        MinPixelWidth = tracer.MinPixelWidth or TracerSettings.MinPixelWidth,
         Trail = trail,
         TrailPending = quality.TracerTrail and trail ~= nil,
         Light = light,
+        LightWanted = lightWanted,
+        Beam = if useBeam then beam else nil,
+        Tail = part:FindFirstChild("Tail"),
+        Head = part:FindFirstChild("Head"),
     }
-    placeTracer(live)
+    placeTracer(live, workspace.CurrentCamera, quality)
     table.insert(liveTracers, live)
 end
 
@@ -170,6 +227,8 @@ local function stepTracers(dt: number)
     if not cache then
         return
     end
+    local camera = workspace.CurrentCamera
+    local quality = Quality.Get()
     for index = #liveTracers, 1, -1 do
         local tracer = liveTracers[index]
         if tracer.TrailPending then
@@ -186,10 +245,13 @@ local function stepTracers(dt: number)
             if tracer.Light then
                 tracer.Light.Enabled = false
             end
+            if tracer.Beam then
+                tracer.Beam.Enabled = false
+            end
             cache:ReturnPart(tracer.Part)
             table.remove(liveTracers, index)
         else
-            placeTracer(tracer)
+            placeTracer(tracer, camera, quality)
         end
     end
 end

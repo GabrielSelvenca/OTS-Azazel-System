@@ -2,6 +2,17 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.7
+
+- Effects: tracers are no longer culled by distance from the camera; `MinPixelWidth` keeps a
+  far tracer visible on screen. `TracerMaxDistance` per quality level is replaced by
+  `TracerLightDistance`, the only thing cut by distance.
+- Effects: `Style = "Beam"` draws the tracer as a flat camera-facing Beam with an optional
+  bullet texture (`Beam.Texture`); `"Rod"` (Neon part) stays the default.
+- Effects: tracer light dimmer (0.5, range 8) and with a fixed `Light.Color`, independent of
+  the tracer color.
+- Docs: Tracados.md updated; color customization per player noted for later.
+
 ## 0.2.0-alpha.6
 
 - Fix: other players' tracers start at the muzzle of the weapon as rendered on the observer's

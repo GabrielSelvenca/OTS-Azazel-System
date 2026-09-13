@@ -17,20 +17,28 @@ Anotacoes do Gabriel sobre o rastro da bala. Nada aqui e implementado fora da fa
   `Speed`, `Color`, `Every`, `Style`.
 - Visual padrao centralizado em `Settings.Effects.Tracer` (cor, largura, comprimento, velocidade,
   fade do rastro, luz); arma/classe sobrescreve o que quiser (alpha.5). Cor padrao mais amarela.
-- Luz na bala: `PointLight` sem sombra, `Settings.Effects.Tracer.Light` e `TracerLight` por nivel de
-  qualidade. Os "quadrados no chao" vem do `Lighting.Technology` em Voxel/Compatibility (grade de
+- Luz na bala: `PointLight` sem sombra, `Settings.Effects.Tracer.Light`, ligada so a ate
+  `TracerLightDistance` studs da camera por nivel de qualidade. Os "quadrados no chao" vem do `Lighting.Technology` em Voxel/Compatibility (grade de
   4 studs); com ShadowMap ou Future a luz fica lisa. `Doctor()` avisa (alpha.5).
 - Tiro de outro jogador nasce no cano da arma como o observador a ve (posicao local), nao no cano
   da copia do servidor, que fica atrasada. Primeiro frame ja mostra a barra saindo do cano; a 1200
   studs/s o passo de um frame e 20 studs, e o rastro (`Trail.Lifetime`) cobre o vao (alpha.6).
 - Obedece o nivel de qualidade: densidade (`TracerEvery`), rastro ligado (`TracerTrail`),
-  distancia maxima da camera (`TracerMaxDistance`), teto de pecas vivas (`TracerMaxLive`).
+  distancia da luz (`TracerLightDistance`), teto de pecas vivas (`TracerMaxLive`).
+- Visivel de qualquer distancia (alpha.7): nao ha mais corte por distancia da camera; o jogador
+  ve de longe de onde o tiro saiu e por onde passa. `MinPixelWidth` engrossa a barra o necessario
+  para nunca ficar mais fina que N pixels na tela. Luz e o unico custo cortado por distancia.
+- Estilo `Beam` (alpha.7): `Style = "Beam"` troca a Part Neon por um Beam plano virado para a
+  camera, com `Beam.Texture` para textura de bala. `Rod` continua o padrao.
+- Luz mais fraca e de cor fixa (`Light.Color`, brilho 0.5, alcance 8), independente da cor do
+  tracado, para nao confundir com ele (alpha.7).
+- Cor por arma ja e possivel (`Effects.Tracer.Color` em arma/classe); por decisao, todas iguais
+  por enquanto.
 
 ## Para depois
 
-- Estilo `Beam` (hoje so `Trail` existe de fato); textura de bala para o Beam.
-- Cor por arma/municao (tracante vs normal), talvez por time.
-- Brilho/glow real (Highlight ou ParticleEmitter no cano) quando a fase de efeitos entrar.
-- Luz da bala: testar `Brightness`/`Range` em mapa escuro; se ainda piscar no ShadowMap, trocar
-  por uma luz so no cano (muzzle flash) e manter a bala so com Neon.
-- LOD por distancia dentro do mesmo nivel (fino de longe, grosso de perto).
+- **Customizacao de cor do tracado** por jogador (skin/loja do jogo): API server tipo
+  `Azazel.SetTracerColor(player, color)` replicada em `ShotFired`, com a luz sempre na cor fixa.
+  O jogo que integra decide quem pode escolher o que.
+- Textura de bala para o `Beam` (asset em `Assets/Effects`).
+- Brilho no cano (muzzle flash) entra na Fase 3.

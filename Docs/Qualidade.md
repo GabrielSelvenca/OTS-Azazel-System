@@ -7,7 +7,8 @@
   `SampleSeconds` com histerese (`AutoFps`). `Quality.Set(level)` forca, `Quality.Set(nil)`
   volta ao automatico, `Quality.Changed` avisa (alpha.9).
 - Cada nivel e uma tabela em `Settings.Quality.Levels` com: `TracerEvery`, `TracerTrail`,
-  `TracerMaxDistance`, `TracerMaxLive`, `Casings`, `Impacts`, `MuzzleFlash`, `Shake`.
+  `TracerLightDistance`, `TracerMaxLive`, `Casings`, `Impacts`, `MuzzleFlash`, `Shake`.
+  Tracer nao e cortado por distancia: o jogador ve o tiro de longe; so a luz e limitada.
   Hoje so os tracers consomem; os outros entram na Fase 3.
 
 ## Regra combinada
