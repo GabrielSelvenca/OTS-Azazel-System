@@ -68,7 +68,7 @@ function Inventory.Snapshot(player: Player)
         Slot = state.EquippedSlot,
         Slots = slotNames,
         Ammo = slot and slot.Ammo or 0,
-        Reserve = slot and slot.Reserve or 0,
+        Reserve = if Settings.Server.InfiniteAmmo then math.huge else (slot and slot.Reserve or 0),
         Magazine = cfg and cfg.Magazine or 0,
         FireMode = slot and slot.FireModeIndex or 1,
         EquipState = state.EquipState,

@@ -2,6 +2,11 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.1.0-alpha.6
+
+- Settings.Server.InfiniteAmmo (on by default): reserve never runs out, reload always fills
+  the magazine, HUD shows the infinity sign.
+
 ## 0.1.0-alpha.5
 
 - Weapon models are moved with PivotTo and parented before the Motor6D is created, so welded

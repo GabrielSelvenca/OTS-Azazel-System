@@ -246,7 +246,8 @@ local function onReload(player: Player)
     if not slot or not cfg or state.EquipState ~= "Ready" then
         return
     end
-    if slot.Ammo >= cfg.Magazine or slot.Reserve <= 0 then
+    local infinite = Settings.Server.InfiniteAmmo
+    if slot.Ammo >= cfg.Magazine or (slot.Reserve <= 0 and not infinite) then
         Inventory.PushState(player)
         return
     end
@@ -262,9 +263,11 @@ local function onReload(player: Player)
             return
         end
         local missing = cfg.Magazine - slot.Ammo
-        local moved = math.min(missing, slot.Reserve)
+        local moved = if infinite then missing else math.min(missing, slot.Reserve)
         slot.Ammo += moved
-        slot.Reserve -= moved
+        if not infinite then
+            slot.Reserve -= moved
+        end
         state.EquipState = "Ready"
         Inventory.PushState(player)
     end)

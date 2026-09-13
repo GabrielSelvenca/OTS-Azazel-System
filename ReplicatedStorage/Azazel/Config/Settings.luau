@@ -73,6 +73,7 @@ Settings.Server = {
     RateGrace = 0.9,
     WindowSlack = 2,
     MaxRange = 2500,
+    InfiniteAmmo = true,
     FriendlyFire = true,
     KickOnAbuse = false,
     AbuseThreshold = 30,

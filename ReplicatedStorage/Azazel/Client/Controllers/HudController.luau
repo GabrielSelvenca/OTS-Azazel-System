@@ -192,7 +192,7 @@ local function refreshAmmo(current: number, reserve: number)
         ammoLabel.TextColor3 = if current <= 0 then Theme.Danger else Theme.Text
     end
     if reserveLabel then
-        reserveLabel.Text = `/ {reserve}`
+        reserveLabel.Text = if reserve == math.huge then "/ ∞" else `/ {reserve}`
     end
     local state = Client.State
     if statusLabel and state and state.EquipState == "Ready" then
