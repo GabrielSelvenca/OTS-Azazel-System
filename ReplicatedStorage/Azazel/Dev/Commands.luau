@@ -12,6 +12,7 @@ local package = script.Parent.Parent
 local Manifest = require(package.Assets.Manifest)
 local Settings = require(package.Config.Settings)
 local WeaponConfig = require(package.Config.WeaponConfig)
+local Damage = require(package.Shared.Damage)
 local EquipmentConfig = require(package.Config.EquipmentConfig)
 local AnimationIds = require(package.Config.AnimationIds)
 local Rig = require(package.Shared.Rig)
@@ -361,6 +362,35 @@ function Commands.ReportMissingAnimationIds()
         end
     end
     return missing
+end
+
+local FALLOFF_COLUMNS = { 0, 25, 50, 100, 200, 400, 800, 1600, 2500 }
+
+function Commands.PrintFalloff(weaponName: string?, step: number?, zone: string?)
+    if weaponName then
+        local cfg = WeaponConfig.Get(weaponName)
+        assert(cfg, `[Azazel] Unknown weapon {weaponName}`)
+        local lines = { `distance,multiplier,damage  ({cfg.Name}, zone {zone or "none"}, range {cfg.Range})` }
+        for _, point in Damage.Curve(cfg, step or 25, zone) do
+            table.insert(lines, string.format("%d,%.3f,%.2f", point.Distance, point.Multiplier, point.Damage))
+        end
+        print(table.concat(lines, "\n"))
+        return
+    end
+    local header = { "weapon" }
+    for _, distance in FALLOFF_COLUMNS do
+        table.insert(header, tostring(distance))
+    end
+    local lines = { table.concat(header, "\t") }
+    for _, name in WeaponConfig.All() do
+        local cfg = WeaponConfig.Get(name)
+        local row = { cfg.Name }
+        for _, distance in FALLOFF_COLUMNS do
+            table.insert(row, if distance <= cfg.Range then string.format("%.1f", Damage.For(cfg, distance, zone)) else "-")
+        end
+        table.insert(lines, table.concat(row, "\t"))
+    end
+    print("[Azazel] Damage per hit by distance (studs); - = out of range\n" .. table.concat(lines, "\n"))
 end
 
 function Commands.Doctor()

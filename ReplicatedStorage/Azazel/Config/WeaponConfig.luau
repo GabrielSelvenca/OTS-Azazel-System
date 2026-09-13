@@ -13,7 +13,9 @@
       Rpm, Burst      rounds per minute; Burst.Count shots per press at Burst.Rpm
       Magazine, Reserve, Reload{Time, EmptyTime}, EquipTime   seconds
       Range           raycast length in studs (capped by Settings.Server.MaxRange)
-      Damage          Base * Zones[zone] * falloff (1 until FalloffStart, FalloffMultiplier at FalloffEnd)
+      Damage          Base * Zones[zone] * falloff, clamped to [Min, Max]; falloff is 1 until
+                      FalloffStart, eases with FalloffCurve to FalloffMultiplier at FalloffEnd
+                      (see Shared/Damage). Dev.Commands.PrintFalloff() prints the curve
       Accuracy        cone in degrees: Base * stance * (aim or hip multiplier) + spray;
                       spray grows PerShot up to Max and drains after RecoveryDelay over RecoveryTime
       Pellets         Count per shot and extra Spread per pellet (shotguns)
@@ -50,6 +52,9 @@ WeaponConfig.Defaults = {
         FalloffStart = 150,
         FalloffEnd = 600,
         FalloffMultiplier = 0.6,
+        FalloffCurve = 1,
+        Min = 1,
+        Max = 300,
         Zones = { Head = 3, Torso = 1, Limb = 0.75 },
     },
     Accuracy = {
@@ -107,8 +112,8 @@ WeaponConfig.Classes = {
         Reserve = 60,
         Reload = { Time = 1.6, EmptyTime = 1.9 },
         EquipTime = 0.35,
-        Range = 500,
-        Damage = { Base = 26, FalloffStart = 60, FalloffEnd = 300, Zones = { Head = 3.5 } },
+        Range = 400,
+        Damage = { Base = 26, FalloffStart = 40, FalloffEnd = 220, FalloffMultiplier = 0.45, FalloffCurve = 1, Zones = { Head = 3.5 } },
         Accuracy = { Base = 0.35, PerShot = 0.35, Max = 2.5, RecoveryTime = 0.35 },
         Recoil = { Camera = { Pitch = 1.4, Yaw = 0.4 } },
         Ads = { Fov = 65, Distance = 3 },
@@ -121,8 +126,8 @@ WeaponConfig.Classes = {
         Reserve = 120,
         Reload = { Time = 2.1, EmptyTime = 2.5 },
         EquipTime = 0.45,
-        Range = 500,
-        Damage = { Base = 20, FalloffStart = 80, FalloffEnd = 300, FalloffMultiplier = 0.55 },
+        Range = 550,
+        Damage = { Base = 20, FalloffStart = 60, FalloffEnd = 320, FalloffMultiplier = 0.5, FalloffCurve = 1.2 },
         Accuracy = { Base = 0.6, PerShot = 0.18, Max = 3.0, RecoveryTime = 0.4 },
         Recoil = { Camera = { Pitch = 0.7, Yaw = 0.35 } },
         Ads = { Fov = 62 },
@@ -135,8 +140,8 @@ WeaponConfig.Classes = {
         Reserve = 90,
         Reload = { Time = 2.4, EmptyTime = 3.0 },
         EquipTime = 0.6,
-        Range = 1000,
-        Damage = { Base = 33, FalloffStart = 200, FalloffEnd = 800, FalloffMultiplier = 0.6, Zones = { Head = 4 } },
+        Range = 1100,
+        Damage = { Base = 33, FalloffStart = 180, FalloffEnd = 750, FalloffMultiplier = 0.65, FalloffCurve = 1.5, Zones = { Head = 4 } },
         Accuracy = { Base = 0.3, PerShot = 0.28, Max = 3.2, RecoveryTime = 0.45 },
         Recoil = { Camera = { Pitch = 1.1, Yaw = 0.3 } },
         Ads = { Fov = 55 },
@@ -149,8 +154,8 @@ WeaponConfig.Classes = {
         Reserve = 24,
         Reload = { Time = 3.2, EmptyTime = 3.6 },
         EquipTime = 0.7,
-        Range = 200,
-        Damage = { Base = 12, FalloffStart = 20, FalloffEnd = 120, FalloffMultiplier = 0.3, Zones = { Head = 2 } },
+        Range = 150,
+        Damage = { Base = 12, FalloffStart = 15, FalloffEnd = 90, FalloffMultiplier = 0.2, FalloffCurve = 0.8, Zones = { Head = 2 } },
         Accuracy = { Base = 1.0, PerShot = 0.5, Max = 2, RecoveryTime = 0.6 },
         Pellets = { Count = 8, Spread = 3.0 },
         Recoil = { Camera = { Pitch = 3, Yaw = 0.8, Recovery = 0.7 } },
@@ -165,7 +170,7 @@ WeaponConfig.Classes = {
         Reload = { Time = 3.5, EmptyTime = 3.9 },
         EquipTime = 0.8,
         Range = 2500,
-        Damage = { Base = 95, FalloffStart = 800, FalloffEnd = 2000, FalloffMultiplier = 0.8, Zones = { Head = 2.5 } },
+        Damage = { Base = 95, FalloffStart = 600, FalloffEnd = 2000, FalloffMultiplier = 0.85, FalloffCurve = 2, Zones = { Head = 2.5 } },
         Accuracy = { Base = 0.02, HipMultiplier = 40, AimMultiplier = 1, PerShot = 1.0, Max = 3, RecoveryTime = 0.8 },
         Recoil = { Camera = { Pitch = 4, Yaw = 0.5, Recovery = 0.8 } },
         Ads = { Fov = 20, Distance = 0, Scope = true, Time = 0.25, AimTime = 0.3 },

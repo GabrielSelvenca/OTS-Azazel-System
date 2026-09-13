@@ -2,6 +2,15 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.8
+
+- Combat: damage by distance is a computed curve in `Shared/Damage.luau`: full damage until
+  `FalloffStart`, eased by `FalloffCurve` to `FalloffMultiplier` at `FalloffEnd`, clamped to
+  `Damage.Min`/`Max` per hit. Classes keep, at range: Shotgun 20%, Pistol 45%, SMG 50%,
+  Rifle 65%, Sniper 85%, with their own `Range` (150 / 400 / 550 / 1100 / 2500 studs).
+- Dev: `PrintFalloff()` prints every weapon's damage at fixed distances; `PrintFalloff(name,
+  step, zone)` prints one curve as CSV for graphs.
+
 ## 0.2.0-alpha.7
 
 - Effects: tracers are no longer culled by distance from the camera; `MinPixelWidth` keeps a

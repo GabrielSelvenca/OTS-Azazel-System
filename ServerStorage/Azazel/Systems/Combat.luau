@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local package = ReplicatedStorage:WaitForChild("Azazel")
 local Settings = require(package.Config.Settings)
 local Accuracy = require(package.Shared.Accuracy)
+local Damage = require(package.Shared.Damage)
 local Remotes = require(package.Shared.Remotes)
 local Rig = require(package.Shared.Rig)
 local WeaponModel = require(package.Shared.WeaponModel)
@@ -58,18 +59,6 @@ local function withinWindow(state, rpm: number, now: number): boolean
     return #times < allowed
 end
 
-local function falloff(cfg, distance: number): number
-    local damage = cfg.Damage
-    if distance <= damage.FalloffStart then
-        return 1
-    end
-    if distance >= damage.FalloffEnd then
-        return damage.FalloffMultiplier
-    end
-    local alpha = (distance - damage.FalloffStart) / math.max(damage.FalloffEnd - damage.FalloffStart, 0.01)
-    return 1 + (damage.FalloffMultiplier - 1) * alpha
-end
-
 local function tagAttacker(humanoid: Humanoid, attacker: Player, weaponName: string)
     humanoid:SetAttribute(ATTACKER_ATTRIBUTE, attacker.UserId)
     humanoid:SetAttribute(WEAPON_ATTRIBUTE, weaponName)
@@ -106,9 +95,8 @@ local function damageVictim(player: Player, cfg, hitPart: BasePart, origin: Vect
         return
     end
     local zone = Rig.ZoneOf(hitPart)
-    local zoneMultiplier = cfg.Damage.Zones[zone] or 1
     local distance = (hitPosition - origin).Magnitude
-    local damage = cfg.Damage.Base * zoneMultiplier * falloff(cfg, distance)
+    local damage = Damage.For(cfg, distance, zone)
     damage = Inventory.ApplyArmor(victimPlayer, zone, damage)
     damage = math.max(1, math.floor(damage + 0.5))
 

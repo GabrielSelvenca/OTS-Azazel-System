@@ -226,6 +226,20 @@ not scriptable). `Doctor()` warns about it. Turn the light off with
 `ClientShots`), which are Studio only either way. `PrintBoot` and `LogRejections` are independent
 of it and safe to leave on.
 
+## Damage by distance
+
+Every hit is `Base * Zones[zone] * falloff(distance)`, clamped to `Damage.Min`..`Damage.Max`.
+The falloff is a curve, not a table: full damage until `FalloffStart`, then it eases to
+`FalloffMultiplier` at `FalloffEnd` with the exponent `FalloffCurve` (1 linear, above 1 holds
+full damage longer and drops late, below 1 drops early and levels out), and stays there until
+`Range`, where the bullet stops existing. The math lives in `Shared/Damage.luau` so the game can
+draw it: `Damage.Curve(cfg, step, zone)` returns points, and in Studio
+`Dev.Commands.PrintFalloff()` prints every weapon side by side, or
+`PrintFalloff("Shotgun", 10, "Torso")` prints one curve as CSV.
+
+Classes are ordered by how much they keep at range: Shotgun (20%, 150 studs), Pistol (45%,
+400), SMG (50%, 550), Rifle (65%, 1100), Sniper (85%, 2500). Any weapon overrides its class.
+
 ## Quality levels
 
 Effects scale with the player. `ReplicatedStorage/Azazel/Client/Quality` reads the graphics
