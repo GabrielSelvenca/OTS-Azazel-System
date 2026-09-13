@@ -50,11 +50,11 @@ local function buildTracerTemplate(): BasePart
 
     local front = Instance.new("Attachment")
     front.Name = "Front"
-    front.Position = Vector3.new(0, 0, -3)
+    front.Position = Vector3.new(0, 0.03, 0)
     front.Parent = part
     local back = Instance.new("Attachment")
     back.Name = "Back"
-    back.Position = Vector3.new(0, 0, 3)
+    back.Position = Vector3.new(0, -0.03, 0)
     back.Parent = part
 
     local trail = Instance.new("Trail")
@@ -69,7 +69,7 @@ local function buildTracerTemplate(): BasePart
         NumberSequenceKeypoint.new(0, 0.2),
         NumberSequenceKeypoint.new(1, 1),
     })
-    trail.WidthScale = NumberSequence.new(1, 0.2)
+    trail.WidthScale = NumberSequence.new(1, 0.3)
     trail.Parent = part
     return part
 end
@@ -105,6 +105,13 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
     part.Color = tracer.Color
     local trail = part:FindFirstChildOfClass("Trail")
     if trail then
+        trail.Lifetime = tracer.Length / math.max(tracer.Speed, 1)
+        local front = part:FindFirstChild("Front")
+        local back = part:FindFirstChild("Back")
+        if front and back then
+            front.Position = Vector3.new(0, tracer.Width / 2, 0)
+            back.Position = Vector3.new(0, -tracer.Width / 2, 0)
+        end
         trail.Color = ColorSequence.new(tracer.Color)
         trail.Enabled = true
     end

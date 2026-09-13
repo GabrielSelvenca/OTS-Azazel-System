@@ -2,6 +2,11 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.1.0-alpha.4
+
+- Tracer trail was 6 studs wide and ~100 studs long; the trail now matches the tracer width
+  and its lifetime follows the configured length.
+
 ## 0.1.0-alpha.3
 
 - WeaponConfig looked for the Weapons folder as its own child; it is a sibling under Config.
