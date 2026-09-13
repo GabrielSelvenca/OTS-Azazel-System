@@ -2,6 +2,17 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.2
+
+- Fix: tracer Trail drew a segment from the previous shot end to the new muzzle when a pooled
+  part was reused, looking like a bullet flying up. The Trail now enables one frame after
+  placement and is cleared on return.
+- Debug: `Settings.Debug.ClientShots` (Studio only) draws camera ray, aim target, head origin,
+  muzzle and every pellet, and prints `[Azazel:Shot]` / `[Azazel:Tracer]` per shot.
+- Dev: SpawnDummy respawns dummies 3 s after death; new ClearDummies.
+- Docs: Inventario.md (Backpack without Tools, holster restores normal play), Municao.md
+  (auto reload on empty), MelhoriasServer.md (falloff already exists).
+
 ## 0.2.0-alpha.1
 
 - Milestone 2: equipment (helmet and vest by zone, damage multiplier, durability, stacked

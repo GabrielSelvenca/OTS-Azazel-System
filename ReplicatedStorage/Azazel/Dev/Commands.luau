@@ -94,6 +94,29 @@ function Commands.Weapons()
     end
 end
 
+local DUMMY_RESPAWN_SECONDS = 3
+
+local function spawnDummy(index: number, cframe: CFrame)
+    local dummy = Players:CreateHumanoidModelFromDescription(Instance.new("HumanoidDescription"), Enum.HumanoidRigType.R6)
+    dummy.Name = `{DUMMY_NAME}{index}`
+    local humanoid = dummy:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.DisplayName = `Dummy {index}`
+        humanoid.BreakJointsOnDeath = false
+        humanoid.Died:Once(function()
+            task.delay(DUMMY_RESPAWN_SECONDS, function()
+                local alive = dummy.Parent ~= nil
+                dummy:Destroy()
+                if alive then
+                    spawnDummy(index, cframe)
+                end
+            end)
+        end)
+    end
+    dummy:PivotTo(cframe)
+    dummy.Parent = workspace
+end
+
 function Commands.SpawnDummy(count: number?, distance: number?)
     server()
     local total = count or 1
@@ -102,22 +125,18 @@ function Commands.SpawnDummy(count: number?, distance: number?)
     local root = anchorPlayer and anchorPlayer.Character and anchorPlayer.Character:FindFirstChild("HumanoidRootPart")
     local base = if root then root.CFrame * CFrame.new(0, 0, -(distance or 20)) else CFrame.new(0, 5, -20)
     for index = 1, total do
-        local dummy = Players:CreateHumanoidModelFromDescription(Instance.new("HumanoidDescription"), Enum.HumanoidRigType.R6)
-        dummy.Name = `{DUMMY_NAME}{index}`
-        local humanoid = dummy:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.DisplayName = `Dummy {index}`
-            humanoid.BreakJointsOnDeath = false
-            humanoid.Died:Once(function()
-                task.delay(3, function()
-                    dummy:Destroy()
-                end)
-            end)
-        end
-        dummy:PivotTo(base * CFrame.new((index - (total + 1) / 2) * spacing, 0, 0) * CFrame.Angles(0, math.pi, 0))
-        dummy.Parent = workspace
+        spawnDummy(index, base * CFrame.new((index - (total + 1) / 2) * spacing, 0, 0) * CFrame.Angles(0, math.pi, 0))
     end
-    print(`[Azazel] Spawned {total} dummy(ies)`)
+    print(`[Azazel] Spawned {total} dummy(ies), respawning {DUMMY_RESPAWN_SECONDS}s after death`)
+end
+
+function Commands.ClearDummies()
+    server()
+    for _, child in workspace:GetChildren() do
+        if child:IsA("Model") and child.Name:sub(1, #DUMMY_NAME) == DUMMY_NAME then
+            child:Destroy()
+        end
+    end
 end
 
 function Commands.Give(name: string, player: Player?)

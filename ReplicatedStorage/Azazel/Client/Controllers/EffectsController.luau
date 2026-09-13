@@ -8,6 +8,7 @@ local Settings = require(package.Config.Settings)
 local WeaponConfig = require(package.Config.WeaponConfig)
 local Remotes = require(package.Shared.Remotes)
 local WeaponModel = require(package.Shared.WeaponModel)
+local ShotDebug = require(package.Dev.ShotDebug)
 local PartCache = require(package.Packages.PartCache)
 
 local EffectsController = {}
@@ -127,7 +128,7 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
             back.Position = Vector3.new(0, -tracer.Width / 2, 0)
         end
         trail.Color = ColorSequence.new(tracer.Color)
-        trail.Enabled = quality.TracerTrail
+        trail.Enabled = false
     end
     local live = {
         Part = part,
@@ -137,6 +138,8 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
         Traveled = 0,
         Speed = tracer.Speed,
         Length = tracer.Length,
+        Trail = trail,
+        TrailPending = quality.TracerTrail and trail ~= nil,
     }
     placeTracer(live)
     table.insert(liveTracers, live)
@@ -149,11 +152,16 @@ local function stepTracers(dt: number)
     end
     for index = #liveTracers, 1, -1 do
         local tracer = liveTracers[index]
+        if tracer.TrailPending then
+            tracer.TrailPending = false
+            tracer.Trail:Clear()
+            tracer.Trail.Enabled = true
+        end
         tracer.Traveled += tracer.Speed * dt
         if tracer.Traveled >= tracer.Distance then
-            local trail = tracer.Part:FindFirstChildOfClass("Trail")
-            if trail then
-                trail.Enabled = false
+            if tracer.Trail then
+                tracer.Trail.Enabled = false
+                tracer.Trail:Clear()
             end
             cache:ReturnPart(tracer.Part)
             table.remove(liveTracers, index)
@@ -186,6 +194,25 @@ function EffectsController.Start()
     Signals.LocalShot:Connect(function(origin, ends, cfg)
         local model = WeaponModel.Find(localPlayer.Character)
         local muzzle = WeaponModel.MuzzlePosition(model) or origin
+        if ShotDebug.Enabled() then
+            for index, endPoint in ends do
+                local fromMuzzle = endPoint - muzzle
+                local fromHead = endPoint - origin
+                local skew = if fromMuzzle.Magnitude > 0.01 and fromHead.Magnitude > 0.01
+                    then ShotDebug.AngleBetween(fromMuzzle, fromHead)
+                    else 0
+                print(string.format(
+                    "[Azazel:Tracer] pellet %d muzzle=%s end=%s tracerDist=%.2f tracerDir=%s skewFromShot=%.2f%s",
+                    index,
+                    ShotDebug.Vector(muzzle),
+                    ShotDebug.Vector(endPoint),
+                    fromMuzzle.Magnitude,
+                    ShotDebug.Vector(if fromMuzzle.Magnitude > 0.01 then fromMuzzle.Unit else Vector3.zero),
+                    skew,
+                    if skew > 10 then "  <-- TRACER SKEW" else ""
+                ))
+            end
+        end
         drawShot(localPlayer, cfg, muzzle, ends)
     end)
 

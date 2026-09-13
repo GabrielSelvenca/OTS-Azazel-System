@@ -7,6 +7,8 @@ local WeaponConfig = require(package.Config.WeaponConfig)
 local Accuracy = require(package.Shared.Accuracy)
 local Remotes = require(package.Shared.Remotes)
 local Rig = require(package.Shared.Rig)
+local WeaponModel = require(package.Shared.WeaponModel)
+local ShotDebug = require(package.Dev.ShotDebug)
 local CameraController = require(script.Parent.CameraController)
 
 local WeaponController = {}
@@ -59,10 +61,63 @@ local function raycastParams(): RaycastParams
     return params
 end
 
-local function aimPoint(range: number, params: RaycastParams): Vector3
+local function aimPoint(range: number, params: RaycastParams): (Vector3, RaycastResult?)
     local origin, look = CameraController.GetAimRay()
     local result = workspace:Raycast(origin, look * range, params)
-    return if result then result.Position else origin + look * range
+    return (if result then result.Position else origin + look * range), result
+end
+
+local function debugShot(info)
+    if not ShotDebug.Enabled() then
+        return
+    end
+    local colors = ShotDebug.Colors
+    local aimAngle = ShotDebug.AngleBetween(info.Direction, info.Look)
+    local anomaly = false
+    local pelletLines = {}
+    for index, pellet in info.Pellets do
+        local angle = ShotDebug.AngleBetween(pellet.Direction, info.Look)
+        local off = angle > info.Cone + info.PelletSpread + 2
+        anomaly = anomaly or off
+        ShotDebug.Line(info.Origin, pellet.End, if off then colors.Anomaly else colors.Shot)
+        ShotDebug.Point(pellet.End, if off then colors.Anomaly else colors.End)
+        table.insert(pelletLines, string.format(
+            "  pellet %d dir=%s angleFromLook=%.2f end=%s hit=%s dist=%.1f%s",
+            index,
+            ShotDebug.Vector(pellet.Direction),
+            angle,
+            ShotDebug.Vector(pellet.End),
+            ShotDebug.Instance(pellet.Hit),
+            (pellet.End - info.Origin).Magnitude,
+            if off then "  <-- ANOMALY" else ""
+        ))
+    end
+    ShotDebug.Line(info.CameraPosition, info.AimTarget, colors.Camera)
+    ShotDebug.Point(info.AimTarget, colors.Aim, nil, 0.5)
+    ShotDebug.Point(info.Origin, colors.Camera, nil, 0.25)
+    if info.Muzzle then
+        ShotDebug.Point(info.Muzzle, colors.Muzzle, nil, 0.25)
+    end
+    print(string.format(
+        "[Azazel:Shot] #%d %s%s\n  camera=%s look=%s\n  aimHit=%s aimTarget=%s aimDist=%.1f\n  head=%s dir=%s dot=%.3f angleFromLook=%.2f fallback=%s cone=%.2f\n  muzzle=%s muzzleToHead=%.2f\n%s",
+        info.Seq,
+        info.Weapon,
+        if anomaly then "  <-- ANOMALY" else "",
+        ShotDebug.Vector(info.CameraPosition),
+        ShotDebug.Vector(info.Look),
+        ShotDebug.Instance(info.AimHit),
+        ShotDebug.Vector(info.AimTarget),
+        (info.AimTarget - info.CameraPosition).Magnitude,
+        ShotDebug.Vector(info.Origin),
+        ShotDebug.Vector(info.Direction),
+        info.Dot,
+        aimAngle,
+        tostring(info.Fallback),
+        info.Cone,
+        if info.Muzzle then ShotDebug.Vector(info.Muzzle) else "none",
+        if info.Muzzle then (info.Muzzle - info.Origin).Magnitude else -1,
+        table.concat(pelletLines, "\n")
+    ))
 end
 
 local function canFire(): boolean
@@ -82,10 +137,12 @@ local function shoot()
     end
     local params = raycastParams()
     local origin = head.Position
-    local target = aimPoint(config.Range, params)
+    local target, aimHit = aimPoint(config.Range, params)
     local direction = (target - origin)
-    local _, look = CameraController.GetAimRay()
-    if direction.Magnitude < 0.1 or direction.Unit:Dot(look) < AIM_DOT_MIN then
+    local cameraPosition, look = CameraController.GetAimRay()
+    local dot = if direction.Magnitude < 0.1 then -1 else direction.Unit:Dot(look)
+    local fallback = dot < AIM_DOT_MIN
+    if fallback then
         direction = look
     end
     direction = direction.Unit
@@ -100,6 +157,7 @@ local function shoot()
     Signals.AmmoChanged:Fire(ammo, reserve, config.Magazine)
 
     local ends = {}
+    local pellets = {}
     for pellet = 1, math.max(1, config.Pellets.Count) do
         local visual = Accuracy.Sample(direction, cone, rng)
         if config.Pellets.Spread > 0 then
@@ -107,7 +165,24 @@ local function shoot()
         end
         local result = workspace:Raycast(origin, visual * config.Range, params)
         ends[pellet] = if result then result.Position else origin + visual * config.Range
+        pellets[pellet] = { Direction = visual, End = ends[pellet], Hit = result and result.Instance }
     end
+    debugShot({
+        Seq = seq,
+        Weapon = config.Name,
+        CameraPosition = cameraPosition,
+        Look = look,
+        AimHit = aimHit and aimHit.Instance,
+        AimTarget = target,
+        Origin = origin,
+        Direction = direction,
+        Dot = dot,
+        Fallback = fallback,
+        Cone = cone,
+        PelletSpread = config.Pellets.Spread,
+        Muzzle = WeaponModel.MuzzlePosition(WeaponModel.Find(model)),
+        Pellets = pellets,
+    })
     Signals.LocalShot:Fire(origin, ends, config)
     Signals.Recoil:Fire(config.Recoil.Camera.Pitch, config.Recoil.Camera.Yaw * rng:NextNumber(-1, 1))
     Remotes.FireServer("Fire", origin, direction, seq)

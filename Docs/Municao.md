@@ -8,6 +8,10 @@
 
 ## Para depois
 
+- **Recarga automatica ao clicar com 0 balas** (pedido em 2026-09-13): `R` continua recarregando, mas
+  apertar o gatilho com o pente vazio dispara a recarga sozinho (com o som de "vazio" antes, quando
+  houver sons). Fica no `WeaponController`, uma chave `Settings.Weapon.AutoReloadOnEmpty` para o
+  jogo desligar.
 - Se o Gabriel quiser tirar a recarga tambem, entra uma chave (`Reload.Mode = "None"`).
 - Economia de municao (pegar municao no mapa, tipos de bala, caixa de municao) so se o jogo
   pedir; o modelo de dados ja tem `Reserve` e `Modifiers.Reserve` para isso.

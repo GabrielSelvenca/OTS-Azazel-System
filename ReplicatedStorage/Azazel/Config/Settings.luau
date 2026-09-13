@@ -115,6 +115,7 @@ Settings.Debug = {
     LogRejections = true,
     PrintBoot = true,
     ServerTracers = true,
+    ClientShots = true,
 }
 
 Settings.Strings = {

@@ -5,6 +5,9 @@ fora do plano, salvo o marcado como feito.
 
 ## Feito
 
+- Dano por distancia ja existe: `Damage.FalloffStart`, `FalloffEnd` e `FalloffMultiplier` por arma
+  (interpolacao linear entre inicio e fim, aplicado antes das zonas e da armadura em `Combat`).
+- `Dev.SpawnDummy` renasce o dummy 3 s depois de morrer, no mesmo lugar; `Dev.ClearDummies` remove todos.
 - `Settings.Debug.ServerTracers`: no Studio, o servidor desenha uma linha vermelha por tiro do
   cano ate o ponto de impacto, para a tela Server mostrar onde a bala foi. Nunca roda em jogo
   publicado (alpha.9).

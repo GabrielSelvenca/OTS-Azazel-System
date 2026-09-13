@@ -5,6 +5,12 @@ Anotacoes do Gabriel sobre o rastro da bala. Nada aqui e implementado fora da fa
 
 ## Feito
 
+- Rastro (Trail) so liga um frame depois do Part sair do pool, ja no cano, e e limpo ao voltar. Antes
+  o Trail desenhava um segmento do fim do tiro anterior ate o cano novo, parecendo uma bala subindo
+  (0.2.0-alpha.2).
+- Modo `Settings.Debug.ClientShots` (so Studio): linhas e bolas por tiro (camera, alvo, cabeca, cano,
+  cada pellet) e print detalhado `[Azazel:Shot]` + `[Azazel:Tracer]`, com `ANOMALY` quando um pellet
+  sai do cone.
 - Rastro nasce no cano e nunca passa do ponto de impacto (alpha.7).
 - Padrao grosso e brilhante, referencia Phantom Forces: 0.2 stud de largura, 5 de comprimento,
   amarelo vivo, opaco (alpha.8). Campos em `Effects.Tracer` por arma/classe: `Width`, `Length`,
