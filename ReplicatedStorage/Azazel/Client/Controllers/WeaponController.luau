@@ -250,7 +250,7 @@ function WeaponController.Start()
     end)
 
     RunService.Heartbeat:Connect(heartbeat)
-    Remotes.FireServer("Ready")
+    task.defer(Remotes.FireServer, "Ready")
 end
 
 return WeaponController

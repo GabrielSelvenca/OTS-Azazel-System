@@ -226,6 +226,10 @@ function HudController.Start()
     buildHitmarker(screen)
     buildAmmoPanel(screen)
     setGap(HudSettings.Crosshair.BaseGap)
+    if Client.State then
+        refreshState(Client.State)
+        refreshAmmo(Client.State.Ammo, Client.State.Reserve)
+    end
 
     Signals.StateChanged:Connect(refreshState)
     Signals.AmmoChanged:Connect(refreshAmmo)
