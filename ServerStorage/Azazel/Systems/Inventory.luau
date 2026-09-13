@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local package = ReplicatedStorage:WaitForChild("Azazel")
 local Settings = require(package.Config.Settings)
 local WeaponConfig = require(package.Config.WeaponConfig)
+local EquipmentConfig = require(package.Config.EquipmentConfig)
 local Accuracy = require(package.Shared.Accuracy)
 local Remotes = require(package.Shared.Remotes)
 local Signal = require(package.Packages.Signal)
@@ -13,6 +14,7 @@ local CharacterRig = require(script.Parent.CharacterRig)
 local Inventory = {}
 
 Inventory.WeaponEquipped = Signal.new()
+Inventory.EquipmentChanged = Signal.new()
 
 local states = {}
 
@@ -51,6 +53,20 @@ function Inventory.GetSlot(state)
     return state.Slots[state.EquippedSlot]
 end
 
+local function equipmentSnapshot(state)
+    local snapshot = {}
+    for zone, piece in state.Equipment do
+        local cfg = EquipmentConfig.Get(piece.Name)
+        snapshot[zone] = {
+            Name = piece.Name,
+            DisplayName = cfg and cfg.DisplayName or piece.Name,
+            Durability = piece.Durability,
+            MaxDurability = piece.MaxDurability,
+        }
+    end
+    return snapshot
+end
+
 function Inventory.Snapshot(player: Player)
     local state = states[player]
     if not state then
@@ -72,7 +88,7 @@ function Inventory.Snapshot(player: Player)
         Magazine = cfg and cfg.Magazine or 0,
         FireMode = slot and slot.FireModeIndex or 1,
         EquipState = state.EquipState,
-        Equipment = state.Equipment,
+        Equipment = equipmentSnapshot(state),
     }
 end
 
@@ -91,6 +107,22 @@ end
 local function setEquipState(state, equipState: string)
     state.EquipState = equipState
     Inventory.PushState(state.Player)
+end
+
+local function rebuildModifiers(state)
+    local list = {}
+    for _, piece in state.Equipment do
+        local cfg = EquipmentConfig.Get(piece.Name)
+        if cfg then
+            table.insert(list, cfg)
+        end
+    end
+    state.Modifiers = EquipmentConfig.StackModifiers(list)
+    local slot = Inventory.GetSlot(state)
+    if slot then
+        state.Config = WeaponConfig.Resolve(slot.Name, state.Modifiers)
+        slot.Ammo = math.min(slot.Ammo, state.Config.Magazine)
+    end
 end
 
 function Inventory.GiveWeapon(player: Player, weaponName: string, slot: number?): number?
@@ -134,6 +166,63 @@ function Inventory.RemoveWeapon(player: Player, slot: number)
     end
 end
 
+function Inventory.GiveEquipment(player: Player, equipmentName: string): boolean
+    local state = states[player]
+    local cfg = EquipmentConfig.Get(equipmentName)
+    if not state or not cfg then
+        warn(`[Azazel] GiveEquipment failed for {player.Name}: unknown equipment {tostring(equipmentName)}`)
+        return false
+    end
+    local max = cfg.Durability and cfg.Durability.Max or nil
+    state.Equipment[cfg.Zone] = {
+        Name = cfg.Name,
+        Durability = max,
+        MaxDurability = max,
+    }
+    rebuildModifiers(state)
+    Inventory.EquipmentChanged:Fire(player, cfg.Zone, cfg)
+    Inventory.PushState(player)
+    return true
+end
+
+function Inventory.RemoveEquipment(player: Player, zone: string)
+    local state = states[player]
+    if not state or not state.Equipment[zone] then
+        return
+    end
+    state.Equipment[zone] = nil
+    rebuildModifiers(state)
+    Inventory.EquipmentChanged:Fire(player, zone, nil)
+    Inventory.PushState(player)
+end
+
+function Inventory.ApplyArmor(player: Player?, zone: string, damage: number): number
+    local state = player and states[player]
+    local piece = state and state.Equipment[zone]
+    if not piece then
+        return damage
+    end
+    local cfg = EquipmentConfig.Get(piece.Name)
+    if not cfg then
+        return damage
+    end
+    local reduced = damage * cfg.DamageMultiplier
+    if piece.Durability then
+        local loss = cfg.Durability.LossPerHit
+        if loss == "Blocked" then
+            piece.Durability -= (damage - reduced)
+        elseif type(loss) == "number" then
+            piece.Durability -= loss
+        end
+        if piece.Durability <= 0 then
+            Inventory.RemoveEquipment(player, zone)
+        else
+            Inventory.PushState(player)
+        end
+    end
+    return reduced
+end
+
 function Inventory.SetLoadout(player: Player, loadout)
     local state = states[player]
     if not state then
@@ -148,7 +237,15 @@ function Inventory.SetLoadout(player: Player, loadout)
             end
         end
     end
-    state.Equipment = {}
+    table.clear(state.Equipment)
+    for _, equipmentName in loadout.Equipment or {} do
+        local cfg = EquipmentConfig.Get(equipmentName)
+        if cfg then
+            local max = cfg.Durability and cfg.Durability.Max or nil
+            state.Equipment[cfg.Zone] = { Name = cfg.Name, Durability = max, MaxDurability = max }
+        end
+    end
+    rebuildModifiers(state)
     Inventory.Equip(player, 0)
 end
 
@@ -197,12 +294,7 @@ local function onCharacterAdded(player: Player)
     end
     local hasWeapons = next(state.Slots) ~= nil
     if not hasWeapons and Settings.Server.GiveDefaultLoadoutOnSpawn then
-        for index, weaponName in Settings.Server.DefaultLoadout.Weapons do
-            local cfg = WeaponConfig.Get(weaponName)
-            if cfg and index <= Settings.Server.MaxSlots then
-                state.Slots[index] = newSlot(cfg)
-            end
-        end
+        Inventory.SetLoadout(player, Settings.Server.DefaultLoadout)
     end
     for _, slot in state.Slots do
         slot.Accuracy = Accuracy.NewState()

@@ -79,8 +79,8 @@ Settings.Server = {
     AbuseThreshold = 30,
     FireRateLimit = 45,
     DefaultLoadout = {
-        Weapons = { "DebugRifle" },
-        Equipment = {},
+        Weapons = { "AutoRifle", "Pistol", "SubmachineGun", "Shotgun", "SniperRifle" },
+        Equipment = { "HelmetLight", "VestLight" },
     },
     GiveDefaultLoadoutOnSpawn = true,
     AutoEquipSlot = 1,

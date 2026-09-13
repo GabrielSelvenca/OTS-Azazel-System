@@ -4,6 +4,7 @@ local package = ReplicatedStorage:WaitForChild("Azazel")
 local Version = require(package.Version)
 local Settings = require(package.Config.Settings)
 local WeaponConfig = require(package.Config.WeaponConfig)
+local EquipmentConfig = require(package.Config.EquipmentConfig)
 local Remotes = require(package.Shared.Remotes)
 
 local CharacterRig = require(script.Systems.CharacterRig)
@@ -20,10 +21,12 @@ local Azazel = {
     Version = Version,
     Settings = Settings,
     WeaponConfig = WeaponConfig,
+    EquipmentConfig = EquipmentConfig,
     Inventory = Inventory,
     Combat = Combat,
     CharacterRig = CharacterRig,
     WeaponEquipped = Inventory.WeaponEquipped,
+    EquipmentChanged = Inventory.EquipmentChanged,
     Shot = Combat.Shot,
     Hit = Combat.Hit,
     Kill = Combat.Kill,
@@ -57,6 +60,14 @@ end
 
 function Azazel.RemoveWeapon(player: Player, slot: number)
     Inventory.RemoveWeapon(player, slot)
+end
+
+function Azazel.GiveEquipment(player: Player, equipmentName: string): boolean
+    return Inventory.GiveEquipment(player, equipmentName)
+end
+
+function Azazel.RemoveEquipment(player: Player, zone: string)
+    Inventory.RemoveEquipment(player, zone)
 end
 
 function Azazel.SetLoadout(player: Player, loadout)

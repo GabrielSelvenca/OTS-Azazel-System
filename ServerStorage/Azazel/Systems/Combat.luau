@@ -70,10 +70,6 @@ local function falloff(cfg, distance: number): number
     return 1 + (damage.FalloffMultiplier - 1) * alpha
 end
 
-local function applyArmor(_victimPlayer: Player?, _zone: string, damage: number): number
-    return damage
-end
-
 local function tagAttacker(humanoid: Humanoid, attacker: Player, weaponName: string)
     humanoid:SetAttribute(ATTACKER_ATTRIBUTE, attacker.UserId)
     humanoid:SetAttribute(WEAPON_ATTRIBUTE, weaponName)
@@ -113,7 +109,7 @@ local function damageVictim(player: Player, cfg, hitPart: BasePart, origin: Vect
     local zoneMultiplier = cfg.Damage.Zones[zone] or 1
     local distance = (hitPosition - origin).Magnitude
     local damage = cfg.Damage.Base * zoneMultiplier * falloff(cfg, distance)
-    damage = applyArmor(victimPlayer, zone, damage)
+    damage = Inventory.ApplyArmor(victimPlayer, zone, damage)
     damage = math.max(1, math.floor(damage + 0.5))
 
     local healthBefore = humanoid.Health

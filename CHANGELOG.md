@@ -2,6 +2,18 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.1
+
+- Milestone 2: equipment (helmet and vest by zone, damage multiplier, durability, stacked
+  modifiers), server API GiveEquipment/RemoveEquipment/EquipmentChanged.
+- Five Weapons Kit weapon configs (Pistol, SubmachineGun, AutoRifle, Shotgun, SniperRifle) in
+  the default loadout together with HelmetLight and VestLight.
+- HUD hotbar (slots 1-5, current highlighted) and armor bars.
+- Dev commands: BuildAnimationRig, AttachToRig, CollectAnimSaves, ReportMissingAnimationIds,
+  Doctor, GripMove/GripRotate/GripSet/GripReset/PrintGrip; ImportWeapon accepts Tools and the
+  current selection; Give also hands out equipment.
+- Manifest carries slot priorities and loop flags.
+
 ## 0.1.0-alpha.10
 
 - Docs folder: the plan lives in the repo (Docs/PLANO.md) plus one note file per topic for

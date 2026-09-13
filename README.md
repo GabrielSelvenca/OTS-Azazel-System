@@ -21,9 +21,10 @@ It is not a player guide.
   toggle. A viewmodel cloned from the player's own rig (planned, see Roadmap).
 - Weapons are Models attached to the character by a Motor6D, so hand made animations can move
   the weapon inside the hand. No Tools, no Backpack.
-- HUD built entirely in code: crosshair that opens with the spray, ammo panel, hitmarker.
+- HUD built entirely in code: crosshair that opens with the spray, ammo panel, hotbar, armor
+  bars, hitmarker.
 - Closed remote registry with schema validation and rate limits on every request.
-- Equipment (helmet, vest) that reduces damage by zone (planned, see Roadmap).
+- Equipment (helmet, vest) that reduces damage by zone, with durability.
 
 ## Requirements
 
@@ -46,8 +47,9 @@ It is not a player guide.
    require(game.ReplicatedStorage.Azazel.Dev.Commands).Setup()
    ```
 3. Press Play. The Output prints `[Azazel] <version> 3/3 systems started` on the server and
-   `[Azazel] client <version> 5/5 controllers started` on the client. You spawn holding a
-   placeholder rifle (`DebugRifle`).
+   `[Azazel] client <version> 5/5 controllers started` on the client. You spawn with the default
+   loadout (five Weapons Kit weapons, drawn as placeholder cubes until you import the models,
+   plus a light helmet and vest).
 
 If you clone this repository to contribute, also run `git config core.hooksPath .githooks`.
 
@@ -124,12 +126,28 @@ To drive the system from your own UI or input, fire the input signals: `FireInpu
 `AimInput(bool)`, `ReloadInput()`, `SlotInput(n)`, `ToggleViewInput()`, `SwapShoulderInput()`,
 `FireModeInput()`. The default keys live in `Settings.Keys`.
 
+## Equipment
+
+Armor pieces are data too. `Config/Equipment/<Name>.luau` declares a `Zone` (`Head` or `Torso`),
+a `DamageMultiplier`, an optional `Durability` (`Max` plus `LossPerHit`, either `"Blocked"` to
+lose the damage it prevented or a fixed number) and a `Modifiers` table stacked on the equipped
+weapon (`MagazineSize`, `Reserve`, `Accuracy`, `RecoilCamera`, `ReloadTime`, each `{ Add, Mul }`).
+One piece per zone; giving another replaces it. A piece whose durability hits zero is removed.
+
+```lua
+Azazel.GiveEquipment(player, "HelmetLight")
+Azazel.RemoveEquipment(player, "Head")
+Azazel.EquipmentChanged:Connect(function(player, zone, cfg) end)   -- cfg nil when removed
+```
+
 ## Adding a weapon
 
 1. Put the Model in Studio, select it, and run:
    ```lua
    require(game.ReplicatedStorage.Azazel.Dev.Commands).ImportWeapon(game.Selection:Get()[1], "AK47")
    ```
+   The first argument may be a Model or a Tool (the Roblox Weapons Kit ships Tools); with no
+   argument the current Studio selection is used.
    This strips every script, welds all parts to a `Handle`, disables collisions and queries,
    adds a `Muzzle` attachment if missing and places the copy in `Assets/Weapons/AK47`. Free
    models are never trusted: the scripts are deleted on import and again every time the model is
@@ -155,6 +173,18 @@ Weapon models need a `Handle` BasePart with the barrel pointing along its negati
 
 Free model sources that work well: the Roblox Weapons Kit models (Creator Store, endorsed),
 Quaternius and Kenney packs (CC0, import through Studio's 3D importer).
+
+## Tuning the grip
+
+With the weapon equipped in Play, use the client command bar:
+
+```lua
+local Dev = require(game.ReplicatedStorage.Azazel.Dev.Commands)
+Dev.GripMove(0, 0.1, -0.2)      -- studs, relative to the current grip
+Dev.GripRotate(0, 15, 0)        -- degrees
+Dev.GripReset()                 -- back to the config value
+Dev.PrintGrip()                 -- prints the Grip line to paste into the weapon config
+```
 
 ## Accuracy model
 
@@ -217,14 +247,18 @@ KeyframeSequence instances inside `Assets/Animations/<Class>/<Slot>`. Slots are 
 Roblox only plays KeyframeSequences directly inside Studio. In a published experience the
 animation must be uploaded by the experience owner. The workflow is:
 
-1. Build the reference rig: `Dev.Commands.BuildAnimationRig("Rifle", "AK47")` (planned).
-2. Animate in the Animation Editor and save. The editor stores the KeyframeSequence in the rig.
-3. `Dev.Commands.CollectAnimSaves()` moves them into `Assets/Animations` (planned).
+1. Build the reference rig: `Dev.BuildAnimationRig("AutoRifle")`. It spawns an R6 dummy in front
+   of the camera with the weapon attached by the same Motor6D used in game and selects it.
+2. Open the Animation Editor on the rig, animate `Right Arm`, `Left Arm` and `Handle` (and
+   `Torso` if you want), and save each animation named exactly by its slot (`Idle`, `Fire`,
+   `Reload`, `Equip`). The editor stores them as KeyframeSequences in `rig.AnimSaves`.
+3. `Dev.CollectAnimSaves()` copies them into `Assets/Animations/<Class>/<Slot>` with the right
+   priority and loop flag (`Dev.CollectAnimSaves(rig, true)` stores per weapon instead).
 4. Play in Studio: the loader registers the KeyframeSequences on the fly.
 5. To publish: right click each KeyframeSequence, Save to Roblox, paste the ids into
    `Config/AnimationIds.luau`. `Dev.Commands.ReportMissingAnimationIds()` lists what is missing.
 
-The playback module and the commands above ship in the animation milestone (see Roadmap).
+The playback module ships in the animation milestone (see Roadmap); the rig commands work now.
 
 ## Dev commands (Studio only)
 
@@ -234,7 +268,12 @@ Dev.Setup()                      -- create Assets folders
 Dev.Weapons()                    -- list configured weapons
 Dev.SpawnDummy(3)                -- three R6 dummies in front of the first player (Play, server)
 Dev.Give("DebugRifle")           -- give and equip to the first player (Play, server)
-Dev.ImportWeapon(model, "Name")  -- sanitize a free model into Assets/Weapons
+Dev.ImportWeapon(model, "Name")  -- sanitize a free model (Model or Tool) into Assets/Weapons
+Dev.BuildAnimationRig("AutoRifle")  -- R6 dummy with the weapon attached, for the Animation Editor
+Dev.CollectAnimSaves()           -- move saved KeyframeSequences into Assets/Animations
+Dev.ReportMissingAnimationIds()  -- KeyframeSequences without ids and ids without sequences
+Dev.Doctor()                     -- validate configs against assets
+Dev.GripMove / GripRotate / GripReset / PrintGrip   -- tune the weapon offset in Play
 ```
 
 The module returns an empty table outside Studio.
@@ -243,8 +282,8 @@ The module returns an empty table outside Studio.
 
 | Milestone | Content |
 |---|---|
-| 1 | Skeleton, remotes, config, server combat, camera, prediction, tracer, HUD (this version) |
-| 2 | Real weapon models, hotbar, equip flow, helmet and vest, animation rig commands |
+| 1 | Skeleton, remotes, config, server combat, camera, prediction, tracer, HUD |
+| 2 | Real weapon models, hotbar, equip flow, helmet and vest, animation rig commands (this version) |
 | 3 | Feel: recoil, aim down sights, shoulder swap, camera collision, scope, effects, sounds |
 | 4 | Animation playback (Studio auto-register, id manifest) |
 | 5 | First person viewmodel cloned from the rig |

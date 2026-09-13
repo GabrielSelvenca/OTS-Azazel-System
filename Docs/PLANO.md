@@ -314,4 +314,10 @@ cano solto do placeholder, tracer nascendo atras do cano.
 assunto nesta pasta e NAO e implementado na hora. O plano segue fase a fase; ao fechar o
 plano, os `.md` viram a lista de refinamento.
 
-**Proxima**: Fase 2.
+**Fase 2 — escrita (v0.2.0-alpha.1), em teste no Play.** Equipamento (capacete/colete), 5 configs
+do Weapons Kit no loadout padrao, hotbar e barras de armadura no HUD, comandos
+`BuildAnimationRig`/`CollectAnimSaves`/`Doctor`/`Grip*`. O que o Gabriel faz a mao: inserir os
+5 modelos do Weapons Kit e rodar `ImportWeapon` em cada um, afinar o Grip com `GripMove`/`GripRotate`
++ `PrintGrip` e colar no config, e comecar a animar com `BuildAnimationRig`.
+
+**Proxima**: Fase 3 (feel: recoil, ADS, ombro, colisao, pellets, scope, efeitos, sons).
