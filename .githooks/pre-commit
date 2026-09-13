@@ -1,0 +1,13 @@
+#!/bin/sh
+# Every commit must bump the version. See COMMITS.md.
+staged=$(git diff --cached --name-only)
+if ! printf '%s\n' "$staged" | grep -q '^ReplicatedStorage/Azazel/Version.luau$'; then
+    echo "[Azazel] Commit blocked: ReplicatedStorage/Azazel/Version.luau was not changed."
+    echo "         Bump Major/Minor/Patch/Build (and CHANGELOG.md) before committing."
+    exit 1
+fi
+if ! printf '%s\n' "$staged" | grep -q '^CHANGELOG.md$'; then
+    echo "[Azazel] Commit blocked: CHANGELOG.md was not updated."
+    exit 1
+fi
+exit 0

@@ -1,0 +1,17 @@
+# Local library catalog, not part of the package
+Cons/
+
+# Roblox Studio files
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+*.rbxm
+*.rbxmx
+sourcemap.json
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
