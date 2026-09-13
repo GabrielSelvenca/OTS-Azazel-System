@@ -2,6 +2,10 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.1.0-alpha.8
+
+- Thicker, brighter default tracer (0.2 studs wide, 5 long), closer to Phantom Forces.
+
 ## 0.1.0-alpha.7
 
 - Tracer grows out of the muzzle and never extends behind it or past the impact point.

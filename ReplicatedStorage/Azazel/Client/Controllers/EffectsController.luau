@@ -46,7 +46,7 @@ local function buildTracerTemplate(): BasePart
     part.CastShadow = false
     part.Material = Enum.Material.Neon
     part.Size = Vector3.new(0.06, 0.06, 6)
-    part.Transparency = 0.1
+    part.Transparency = 0
 
     local front = Instance.new("Attachment")
     front.Name = "Front"
@@ -90,7 +90,6 @@ local function ensureCache()
 end
 
 local function placeTracer(tracer)
-    local head = tracer.From + tracer.Direction * tracer.Traveled
     local tailDistance = math.max(tracer.Traveled - tracer.Length, 0)
     local tail = tracer.From + tracer.Direction * tailDistance
     local rod = math.max(tracer.Traveled - tailDistance, 0.05)
