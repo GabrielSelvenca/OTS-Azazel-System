@@ -2,6 +2,12 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.3
+
+- Fix: clicking during the shot interval no longer queues a shot that fires when the interval
+  ends (Semi and Burst). Input during the interval is ignored.
+- Docs: Animacoes.md (animation-driven cadence, reload cancels Fire, for Phase 4).
+
 ## 0.2.0-alpha.2
 
 - Fix: tracer Trail drew a segment from the previous shot end to the new muzzle when a pooled

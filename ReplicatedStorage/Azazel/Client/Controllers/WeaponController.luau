@@ -203,10 +203,12 @@ local function heartbeat()
 
     if not canFire() then
         burstRemaining = 0
+        semiLatch = false
         return
     end
     local mode = currentFireMode()
     if now < nextShotAt then
+        semiLatch = false
         return
     end
     if mode == "Auto" then
@@ -268,9 +270,12 @@ function WeaponController.Start()
         if not pressed then
             return
         end
-        semiLatch = true
         local config = cfg()
-        if config and currentFireMode() == "Burst" and burstRemaining == 0 and os.clock() >= nextShotAt then
+        if not config or os.clock() < nextShotAt then
+            return
+        end
+        semiLatch = true
+        if currentFireMode() == "Burst" and burstRemaining == 0 then
             burstRemaining = config.Burst.Count
         end
     end)
