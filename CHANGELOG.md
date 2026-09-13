@@ -2,6 +2,11 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.1.0-alpha.10
+
+- Docs folder: the plan lives in the repo (Docs/PLANO.md) plus one note file per topic for
+  requests that wait for the refinement pass.
+
 ## 0.1.0-alpha.9
 
 - Client Quality module: Low/Medium/High from the saved graphics level or measured FPS; effects
