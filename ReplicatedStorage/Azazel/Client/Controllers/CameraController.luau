@@ -20,6 +20,7 @@ local RENDER_PRIORITY = Enum.RenderPriority.Camera.Value
 local yaw = 0
 local pitch = 0
 local shoulderSide = 1
+local zoomDistance = CameraSettings.Distance
 local recoilPitch = 0
 local recoilYaw = 0
 local mouseDelta = Vector2.zero
@@ -75,7 +76,7 @@ local function retarget()
     local cfg = Client.Config
     local aiming = Client.Aiming and cfg ~= nil
     local targetFov = if aiming then cfg.Ads.Fov else CameraSettings.FovDefault
-    local targetDistance = if aiming then cfg.Ads.Distance else CameraSettings.Distance
+    local targetDistance = if aiming then cfg.Ads.Distance else zoomDistance
     local targetShoulder = if aiming then cfg.Ads.Shoulder else CameraSettings.Shoulder
     Spr.target(fovValue, CameraSettings.FovDamping, CameraSettings.FovFrequency, { Value = targetFov })
     Spr.target(distanceValue, CameraSettings.DistanceDamping, CameraSettings.DistanceFrequency, { Value = targetDistance })
@@ -207,6 +208,14 @@ function CameraController.Start()
 
     Signals.SwapShoulderInput:Connect(function()
         shoulderSide = -shoulderSide
+    end)
+
+    Signals.ZoomInput:Connect(function(direction: number)
+        if isFirstPerson() then
+            return
+        end
+        zoomDistance = math.clamp(zoomDistance - direction * CameraSettings.ZoomStep, CameraSettings.MinDistance, CameraSettings.MaxDistance)
+        retarget()
     end)
 
     Signals.AimChanged:Connect(retarget)

@@ -17,8 +17,8 @@ It is not a player guide.
   go recovers it. Spread is rolled on the server.
 - Five weapon classes (Pistol, SMG, Rifle, Shotgun, Sniper) with per-weapon overrides. Fire
   modes Auto, Semi and Burst. Shotgun pellets. Damage zones (head, torso, limbs) and falloff.
-- Over the shoulder camera with locked mouse, shoulder swap, aim down sights and a first person
-  toggle. A viewmodel cloned from the player's own rig (planned, see Roadmap).
+- Over the shoulder camera with locked mouse, wheel zoom, shoulder swap, aim down sights and a
+  first person toggle (V) with a viewmodel cloned from the player's own rig.
 - Weapons are Models attached to the character by a Motor6D, so hand made animations can move
   the weapon inside the hand. No Tools, no Backpack.
 - HUD built entirely in code: crosshair that opens with the spray, ammo panel, hitmarker.
@@ -48,7 +48,7 @@ It is not a player guide.
    require(game.ReplicatedStorage.Azazel.Dev.Commands).Setup()
    ```
 3. Press Play. The Output prints `[Azazel] <version> 3/3 systems started` on the server and
-   `[Azazel] client <version> 5/5 controllers started` on the client. You spawn with the default
+   `[Azazel] client <version> 6/6 controllers started` on the client. You spawn with the default
    loadout (five Weapons Kit weapons, drawn as placeholder cubes until you import the models,
    plus a light helmet and vest).
 
@@ -240,6 +240,20 @@ draw it: `Damage.Curve(cfg, step, zone)` returns points, and in Studio
 Classes are ordered by how much they keep at range: Shotgun (20%, 150 studs), Pistol (45%,
 400), SMG (50%, 550), Rifle (65%, 1100), Sniper (85%, 2500). Any weapon overrides its class.
 
+## First person viewmodel
+
+Press V. `Client/Controllers/ViewmodelController` clones the player's own character, keeps only
+the root, torso and arms (plus shirt and body colors), strips joints, scripts and accessories,
+adds an `AnimationController` and parents it to the camera. The weapon is a fresh
+`WeaponModel.Clone` attached with the same Motor6D `Handle` the server uses, so the same
+animations drive both. Each frame the root follows the camera with `Settings.Viewmodel.Offset`,
+plus mouse sway, walk bob and a recoil kick (`Recoil.Viewmodel` per weapon), all springs. Aiming
+lerps to a pose that puts the weapon's `Sight` attachment at the screen center
+(`Ads.SightDistance` in front of the camera); without a `Sight`, `Ads.ViewmodelOffset` is used.
+The real character is hidden with `LocalTransparencyModifier`. Third person has no viewmodel.
+
+`ViewmodelController.GetAnimator()` returns the viewmodel's Animator for the animation set.
+
 ## Quality levels
 
 Effects scale with the player. `ReplicatedStorage/Azazel/Client/Quality` reads the graphics
@@ -328,7 +342,7 @@ The module returns an empty table outside Studio.
 | 2 | Real weapon models, hotbar, equip flow, helmet and vest, animation rig commands (this version) |
 | 3 | Feel: recoil, aim down sights, shoulder swap, camera collision, scope, effects, sounds |
 | 4 | Animation playback (Studio auto-register, id manifest) |
-| 5 | First person viewmodel cloned from the rig |
+| 5 | First person viewmodel cloned from the rig (this version) |
 | 6 | Hardening, R15 tables, first alpha tag |
 
 ## License

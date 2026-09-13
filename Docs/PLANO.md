@@ -320,4 +320,11 @@ do Weapons Kit no loadout padrao, hotbar e barras de armadura no HUD, comandos
 5 modelos do Weapons Kit e rodar `ImportWeapon` em cada um, afinar o Grip com `GripMove`/`GripRotate`
 + `PrintGrip` e colar no config, e comecar a animar com `BuildAnimationRig`.
 
-**Proxima**: Fase 3 (feel: recoil, ADS, ombro, colisao, pellets, scope, efeitos, sons).
+**Fase 5 — escrita (v0.2.0-alpha.9), em teste no Play.** `ViewmodelController` + `Shared/Spring`:
+clone do rig na camera, arma por Motor6D, sway/bob/recoil, ADS pelo `Sight` (fallback
+`Ads.ViewmodelOffset`), V alterna, boneco escondido. Feita antes da Fase 3/4 a pedido do Gabriel
+(sem animacoes para fazer no dia). Zoom pela roda em 3a pessoa (`MinDistance`/`MaxDistance`/
+`ZoomStep`). O que o Gabriel faz a mao: attachment `Sight` nas armas.
+
+**Proxima**: resto da Fase 3 (scope, muzzle flash, impactos, cartuchos, Shake, sons), depois o
+codigo da Fase 4 (Animations, slots) e a Fase 6.

@@ -1,4 +1,5 @@
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 
 local Client = require(script.Parent.Parent)
 local Settings = require(script.Parent.Parent.Parent.Config.Settings)
@@ -81,6 +82,13 @@ function InputController.Start()
             Signals.SlotInput:Fire(index)
         end, nil, key)
     end
+
+    UserInputService.InputChanged:Connect(function(input, processed)
+        if processed or input.UserInputType ~= Enum.UserInputType.MouseWheel then
+            return
+        end
+        Signals.ZoomInput:Fire(input.Position.Z)
+    end)
 
     bind("AzazelNextWeapon", function()
         local state = Client.State

@@ -2,6 +2,18 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.9
+
+- Viewmodel (Phase 5): `Client/Controllers/ViewmodelController` clones the player's rig into
+  the camera (root, torso, arms, shirt), attaches the weapon with the same Motor6D `Handle`,
+  and drives it with springs (`Shared/Spring`): mouse sway, walk bob, recoil kick from
+  `Recoil.Viewmodel`. Aiming aligns the weapon's `Sight` attachment to the screen center, or
+  `Ads.ViewmodelOffset` without one. Destroyed on death, third person or holster.
+- Camera: mouse wheel zoom in third person between `Settings.Camera.MinDistance` and
+  `MaxDistance` (2..30 studs, `ZoomStep` 1.5). It never enters first person; V does.
+- Rig: `Rig.Detect` honors the `AzazelRig` attribute so a rig without a Humanoid (the
+  viewmodel) resolves the same tables.
+
 ## 0.2.0-alpha.8
 
 - Combat: damage by distance is a computed curve in `Shared/Damage.luau`: full damage until

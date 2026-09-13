@@ -7,6 +7,7 @@ local SIGNAL_NAMES = {
     "SlotInput",
     "ToggleViewInput",
     "SwapShoulderInput",
+    "ZoomInput",
     "FireModeInput",
     "SprintInput",
     "InspectInput",

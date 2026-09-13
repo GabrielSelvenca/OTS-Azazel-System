@@ -12,12 +12,15 @@
 local Settings = {}
 
 -- Third person camera, first person switch, ADS transitions and how the character follows the
--- camera. Shoulder and offsets are in character space (X right, Y up, Z back).
+-- camera. Shoulder and offsets are in character space (X right, Y up, Z back). The mouse wheel
+-- zooms between MinDistance and MaxDistance in third person; it never enters first person
+-- (that is the V key) and never goes as far as the Roblox default camera.
 Settings.Camera = {
     DefaultView = "Third",                      -- "Third" | "First"
-    Distance = 6,                               -- default over the shoulder distance
-    MinDistance = 2,
-    MaxDistance = 12,
+    Distance = 6,                               -- over the shoulder distance on spawn
+    MinDistance = 2,                            -- closest the wheel zooms in
+    MaxDistance = 30,                           -- farthest the wheel zooms out
+    ZoomStep = 1.5,                             -- studs per wheel notch
     Shoulder = Vector3.new(1.6, 0.6, 0),        -- pivot offset; X flips when the shoulder swaps
     PivotOffset = Vector3.new(0, 1.5, 0),       -- pivot above the root, third person
     FirstPersonOffset = Vector3.new(0, 1.5, 0), -- camera position above the root, first person
@@ -34,13 +37,17 @@ Settings.Camera = {
     RecoilRecovery = 0.4,                       -- seconds for the camera recoil to settle
 }
 
--- First person arms: the viewmodel is a clone of the player's own rig parented to the camera.
+-- First person arms: the viewmodel is a clone of the player's own rig (torso, arms, weapon)
+-- parented to the camera. Offset places the rig root relative to the camera; aiming moves the
+-- weapon's Sight attachment to the screen center (Ads.SightDistance per weapon), or uses
+-- Ads.ViewmodelOffset when the model has no Sight.
 Settings.Viewmodel = {
-    Offset = CFrame.new(0, -1.55, -0.35),                                -- arms relative to the camera
-    Sway = { Amount = 0.06, Clamp = 0.25, Damping = 0.7, Frequency = 6 }, -- mouse sway spring
-    Bob = { X = 0.04, Y = 0.03, Speed = 9 },                              -- walk bob amplitude and speed
+    Offset = CFrame.new(0, -1.55, -0.35),                                -- rig root relative to the camera
+    Sway = { Amount = 0.06, Clamp = 0.25, Damping = 0.7, Frequency = 6 }, -- radians per 10 px of mouse movement, clamp in radians
+    Bob = { X = 0.04, Y = 0.03, Speed = 9 },                              -- walk bob amplitude (studs) and speed
+    AimSwayMultiplier = 0.3,                                             -- sway kept while aiming
+    AimBobMultiplier = 0.2,                                              -- bob kept while aiming
     HideCharacterInFirstPerson = true,
-    ShowLegs = false,
 }
 
 -- Input bindings. Keyboard and mouse use UserInputType or KeyCode; the Gamepad table mirrors

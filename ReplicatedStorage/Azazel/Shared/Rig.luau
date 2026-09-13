@@ -1,5 +1,7 @@
 local Rig = {}
 
+Rig.Attribute = "AzazelRig"
+
 Rig.R6 = {
     Name = "R6",
     Root = "HumanoidRootPart",
@@ -43,6 +45,10 @@ Rig.R15 = {
 function Rig.Detect(character: Model?): string?
     if not character then
         return nil
+    end
+    local tagged = character:GetAttribute(Rig.Attribute)
+    if type(tagged) == "string" and Rig[tagged] then
+        return tagged
     end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if not humanoid then
