@@ -5,6 +5,9 @@ Anotacoes de pedidos fora da fase atual sobre animacao e o que ela controla. A F
 
 ## Feito
 
+- Um portao so no client, `WeaponController.CanFire()`: pronto, com bala, vivo e fora do intervalo. Clique
+  indisponivel e descartado; segurar o gatilho durante recarga ou troca nao retoma o tiro. O servidor
+  ja descartava tudo fora das regras dele e continua (0.2.0-alpha.4).
 - Clique durante o intervalo entre tiros e ignorado (nao fica em fila para disparar quando o
   intervalo acaba). Vale para Semi e Burst (0.2.0-alpha.3).
 

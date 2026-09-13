@@ -120,8 +120,12 @@ local function debugShot(info)
     ))
 end
 
-local function canFire(): boolean
+local function available(): boolean
     return Client.IsReady() and ammo > 0 and isAlive()
+end
+
+local function canFire(): boolean
+    return available() and os.clock() >= nextShotAt
 end
 
 local function shoot()
@@ -201,7 +205,8 @@ local function heartbeat()
         Signals.SprayChanged:Fire(cone)
     end
 
-    if not canFire() then
+    if not available() then
+        firing = false
         burstRemaining = 0
         semiLatch = false
         return
@@ -253,6 +258,10 @@ function WeaponController.GetAmmo(): (number, number)
     return ammo, reserve
 end
 
+function WeaponController.CanFire(): boolean
+    return canFire()
+end
+
 function WeaponController.Start()
     Remotes.OnClient("State", function(state)
         if type(state) ~= "table" then
@@ -266,15 +275,16 @@ function WeaponController.Start()
     end)
 
     Signals.FireInput:Connect(function(pressed)
-        firing = pressed
         if not pressed then
+            firing = false
             return
         end
-        local config = cfg()
-        if not config or os.clock() < nextShotAt then
+        if not canFire() then
             return
         end
+        firing = true
         semiLatch = true
+        local config = cfg()
         if currentFireMode() == "Burst" and burstRemaining == 0 then
             burstRemaining = config.Burst.Count
         end

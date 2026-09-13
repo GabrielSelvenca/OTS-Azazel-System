@@ -2,6 +2,13 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.4
+
+- Weapon: one `CanFire` gate on the client (ready, ammo, alive, not cycling). A trigger press
+  while unavailable is discarded, and holding the trigger through a reload or equip does not
+  resume fire; the player must press again. Server keeps discarding anything outside its own
+  checks.
+
 ## 0.2.0-alpha.3
 
 - Fix: clicking during the shot interval no longer queues a shot that fires when the interval
