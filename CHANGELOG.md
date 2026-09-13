@@ -2,6 +2,18 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.6
+
+- Fix: other players' tracers start at the muzzle of the weapon as rendered on the observer's
+  client, instead of the server's copy of it (which lags behind the shooter). The server muzzle
+  is only a fallback.
+- Fix: a tracer's first frame shows the rod leaving the muzzle; before, the first step already
+  moved it 20 studs ahead at 60 fps, so nobody ever saw it start at the barrel.
+- Effects: `Settings.Effects.Tracer.Trail.Lifetime` (0.06 s) replaces the Length/Speed formula
+  that made the trail vanish within a frame.
+- Debug: `ClientShots` prints `[Azazel:Remote]` with the server and local muzzle of other
+  players' shots and marks both.
+
 ## 0.2.0-alpha.5
 
 - Settings: `Settings.Effects.Tracer` holds the default tracer look (color, width, length, speed,

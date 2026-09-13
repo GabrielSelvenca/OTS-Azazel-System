@@ -90,6 +90,7 @@ WeaponConfig.Defaults = {
             Width = TracerDefaults.Width,
             Color = TracerDefaults.Color,
             Style = TracerDefaults.Style,
+            Trail = TracerDefaults.Trail,
             Light = TracerDefaults.Light,
         },
     },

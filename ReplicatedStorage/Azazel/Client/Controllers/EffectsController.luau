@@ -63,7 +63,7 @@ local function buildTracerTemplate(): BasePart
     trail.Attachment0 = front
     trail.Attachment1 = back
     trail.Enabled = false
-    trail.Lifetime = TracerSettings.Length / TracerSettings.Speed
+    trail.Lifetime = TracerSettings.Trail.Lifetime
     trail.LightEmission = 1
     trail.LightInfluence = 0
     trail.MinLength = 0
@@ -127,7 +127,7 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
     part.Color = tracer.Color
     local trail = part:FindFirstChildOfClass("Trail")
     if trail then
-        trail.Lifetime = tracer.Length / math.max(tracer.Speed, 1)
+        trail.Lifetime = if tracer.Trail then tracer.Trail.Lifetime else TracerSettings.Trail.Lifetime
         local front = part:FindFirstChild("Front")
         local back = part:FindFirstChild("Back")
         if front and back then
@@ -154,7 +154,7 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
         From = from,
         Direction = direction,
         Distance = distance,
-        Traveled = 0,
+        Traveled = math.min(tracer.Length, distance),
         Speed = tracer.Speed,
         Length = tracer.Length,
         Trail = trail,
@@ -247,7 +247,22 @@ function EffectsController.Start()
         if not cfg then
             return
         end
-        drawShot(shooter, cfg, muzzle, ends)
+        local localMuzzle = WeaponModel.MuzzlePosition(WeaponModel.Find(shooter.Character))
+        if ShotDebug.Enabled() then
+            ShotDebug.Log(string.format(
+                "[Azazel:Remote] %s %s serverMuzzle=%s localMuzzle=%s gap=%.2f",
+                shooter.Name,
+                weaponName,
+                ShotDebug.Vector(muzzle),
+                if localMuzzle then ShotDebug.Vector(localMuzzle) else "none",
+                if localMuzzle then (localMuzzle - muzzle).Magnitude else -1
+            ))
+            ShotDebug.Point(muzzle, ShotDebug.Colors.Muzzle, nil, 0.25)
+            if localMuzzle then
+                ShotDebug.Point(localMuzzle, ShotDebug.Colors.Camera, nil, 0.25)
+            end
+        end
+        drawShot(shooter, cfg, localMuzzle or muzzle, ends)
     end)
 
     Players.PlayerRemoving:Connect(function(player)

@@ -145,7 +145,8 @@ Settings.Effects = {
         Speed = 1200,                                      -- studs per second
         Style = "Trail",                                   -- only "Trail" exists today
         Material = Enum.Material.Neon,
-        Trail = {                                          -- fade of the streak behind the rod
+        Trail = {                                          -- streak behind the rod
+            Lifetime = 0.06,                               -- seconds; long enough to bridge the muzzle and the first frames
             Transparency = NumberSequence.new({
                 NumberSequenceKeypoint.new(0, 0.2),
                 NumberSequenceKeypoint.new(1, 1),
