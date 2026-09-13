@@ -186,7 +186,7 @@ local cache = {}
 
 local function scanWeapons()
     table.clear(weaponModules)
-    for _, module in script.Weapons:GetChildren() do
+    for _, module in script.Parent.Weapons:GetChildren() do
         if module:IsA("ModuleScript") then
             weaponModules[module.Name] = module
         end
