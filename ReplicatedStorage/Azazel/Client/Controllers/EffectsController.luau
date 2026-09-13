@@ -89,6 +89,15 @@ local function ensureCache()
     return result
 end
 
+local function placeTracer(tracer)
+    local head = tracer.From + tracer.Direction * tracer.Traveled
+    local tailDistance = math.max(tracer.Traveled - tracer.Length, 0)
+    local tail = tracer.From + tracer.Direction * tailDistance
+    local rod = math.max(tracer.Traveled - tailDistance, 0.05)
+    tracer.Part.Size = Vector3.new(tracer.Width, tracer.Width, rod)
+    tracer.Part.CFrame = CFrame.lookAt(tail, tail + tracer.Direction) * CFrame.new(0, 0, -rod / 2)
+end
+
 local function spawnTracer(from: Vector3, to: Vector3, tracer)
     local cache = ensureCache()
     if not cache or #liveTracers >= EffectSettings.TracerMaxLive then
@@ -96,7 +105,7 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
     end
     local offset = to - from
     local distance = offset.Magnitude
-    if distance < 0.5 then
+    if distance < 1 then
         return
     end
     local direction = offset / distance
@@ -115,8 +124,7 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
         trail.Color = ColorSequence.new(tracer.Color)
         trail.Enabled = true
     end
-    part.CFrame = CFrame.lookAt(from, to) * CFrame.new(0, 0, tracer.Length / 2)
-    table.insert(liveTracers, {
+    local live = {
         Part = part,
         From = from,
         Direction = direction,
@@ -124,7 +132,9 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
         Traveled = 0,
         Speed = tracer.Speed,
         Length = tracer.Length,
-    })
+    }
+    placeTracer(live)
+    table.insert(liveTracers, live)
 end
 
 local function stepTracers(dt: number)
@@ -143,8 +153,7 @@ local function stepTracers(dt: number)
             cache:ReturnPart(tracer.Part)
             table.remove(liveTracers, index)
         else
-            local head = tracer.From + tracer.Direction * tracer.Traveled
-            tracer.Part.CFrame = CFrame.lookAt(head, head + tracer.Direction) * CFrame.new(0, 0, tracer.Length / 2)
+            placeTracer(tracer)
         end
     end
 end

@@ -2,6 +2,10 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.1.0-alpha.7
+
+- Tracer grows out of the muzzle and never extends behind it or past the impact point.
+
 ## 0.1.0-alpha.6
 
 - Settings.Server.InfiniteAmmo (on by default): reserve never runs out, reload always fills
