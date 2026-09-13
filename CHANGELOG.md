@@ -2,6 +2,22 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.5
+
+- Settings: `Settings.Effects.Tracer` holds the default tracer look (color, width, length, speed,
+  material, trail fade, light); `WeaponConfig.Defaults` reads from it. Default color is a
+  stronger yellow.
+- Effects: optional `PointLight` on tracers (`Tracer.Light`, no shadows), gated by `TracerLight`
+  per quality level. Doctor warns when `Lighting.Technology` is Voxel or Compatibility, which
+  renders moving lights as blocky patches.
+- Debug: `Settings.Debug.Enabled` master switch, off by default. `ServerTracers` and
+  `ClientShots` are now tables with their colors, sizes, lifetimes and print/draw toggles.
+- HUD: hotbar and armor bars removed. Slots still switch with the number keys; the Roblox
+  Backpack will list them (see Docs/Inventario.md).
+- Equipment: `HelmetLight` and `VestLight` no longer have durability; they never break.
+- Docs: section comments in `Settings.luau` and headers in `WeaponConfig`, `EquipmentConfig`,
+  `AnimationIds` and every weapon/equipment module.
+
 ## 0.2.0-alpha.4
 
 - Weapon: one `CanFire` gate on the client (ready, ammo, alive, not cycling). A trigger press

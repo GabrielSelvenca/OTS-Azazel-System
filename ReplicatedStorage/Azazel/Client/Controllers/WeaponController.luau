@@ -98,7 +98,7 @@ local function debugShot(info)
     if info.Muzzle then
         ShotDebug.Point(info.Muzzle, colors.Muzzle, nil, 0.25)
     end
-    print(string.format(
+    ShotDebug.Log(string.format(
         "[Azazel:Shot] #%d %s%s\n  camera=%s look=%s\n  aimHit=%s aimTarget=%s aimDist=%.1f\n  head=%s dir=%s dot=%.3f angleFromLook=%.2f fallback=%s cone=%.2f\n  muzzle=%s muzzleToHead=%.2f\n%s",
         info.Seq,
         info.Weapon,

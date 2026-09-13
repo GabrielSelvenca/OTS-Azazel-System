@@ -1,3 +1,4 @@
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Selection = game:GetService("Selection")
@@ -9,6 +10,7 @@ end
 
 local package = script.Parent.Parent
 local Manifest = require(package.Assets.Manifest)
+local Settings = require(package.Config.Settings)
 local WeaponConfig = require(package.Config.WeaponConfig)
 local EquipmentConfig = require(package.Config.EquipmentConfig)
 local AnimationIds = require(package.Config.AnimationIds)
@@ -413,6 +415,14 @@ function Commands.Doctor()
     end
     for _, line in Commands.ReportMissingAnimationIds() do
         report(line)
+    end
+    if Settings.Effects.Tracer.Light.Enabled then
+        local ok, technology = pcall(function()
+            return Lighting.Technology
+        end)
+        if ok and (technology == Enum.Technology.Voxel or technology == Enum.Technology.Compatibility) then
+            report(`Lighting.Technology is {technology.Name}; tracer lights look blocky, use ShadowMap or Future`)
+        end
     end
     if #problems == 0 then
         print("[Azazel] Doctor: all good")

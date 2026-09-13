@@ -5,11 +5,22 @@ Nada daqui entra antes do plano fechar.
 
 ## Feito
 
-- Hotbar de 5 slots em codigo, tecla `0` desequipa (estado `Holstered`), `Equip(player, 0)` na API.
+- Tecla `0` desequipa (estado `Holstered`), `Equip(player, 0)` na API; teclas 1-5 trocam de slot.
 - Armas nao sao Tools: Model preso ao `Right Arm` por Motor6D `Handle`.
+- Hotbar em codigo e barras de armadura removidas do HUD (alpha.5). Equipamento nao tem vida por
+  enquanto (`HelmetLight`/`VestLight` sem `Durability`); o suporte continua no config e no
+  Inventory para quando voltar.
 
 ## Para depois
 
+- **Hotbar = Backpack padrao da Roblox** (pedido em 2026-09-13). A UI padrao so lista Tools, entao
+  cada slot vira uma Tool marcadora no `Backpack` (`RequiresHandle = false`, `CanBeDropped = false`,
+  `ToolTip = DisplayName`, sem Handle). Clicar/apertar o numero na UI da Roblox dispara
+  `Tool.Equipped`; o server trata isso como `Equip(slot)` e devolve a Tool ao Backpack na hora,
+  para a Roblox nao tentar segurar nada (a arma continua sendo o Model no Motor6D). Selecionar a
+  Tool ja equipada = `Equip(0)`. O Inventory continua a fonte da verdade e cria/destroi as Tools
+  ao dar/remover arma. Precisa checar: `Humanoid:UnequipTools()` sem flicker, ordem dos slots na
+  UI (Backpack ordena por insercao), e desligar o Backpack quando o jogo quiser HUD propria.
 - **Armas na Backpack sem serem Tool comum** (pedido em 2026-09-13). Ideia: cada arma do jogador
   vira um item no `Backpack` (Folder/ObjectValue com atributos, ou Tool com `Enabled = false`
   e `RequiresHandle = false` so como marcador) para o jogo que integra poder ler o inventario

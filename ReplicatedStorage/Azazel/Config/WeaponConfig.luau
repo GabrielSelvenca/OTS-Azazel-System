@@ -1,5 +1,35 @@
+--[[
+    Weapon configuration.
+
+    A weapon is a module under Config/Weapons that returns a table with at least Name and Class.
+    WeaponConfig.Get(name) merges three layers, later ones winning field by field:
+    Defaults <- Classes[Class] <- the weapon module. So a weapon only lists what differs from
+    its class, and a class only what differs from Defaults. The result is frozen; ShotInterval
+    and BurstInterval are derived from Rpm.
+
+    Fields (Defaults below shows every one with its default value):
+      Grip            CFrame of the Handle relative to the hand; tune with Dev.Commands.PrintGrip
+      FireModes       list of "Auto" | "Semi" | "Burst"; the first is the default
+      Rpm, Burst      rounds per minute; Burst.Count shots per press at Burst.Rpm
+      Magazine, Reserve, Reload{Time, EmptyTime}, EquipTime   seconds
+      Range           raycast length in studs (capped by Settings.Server.MaxRange)
+      Damage          Base * Zones[zone] * falloff (1 until FalloffStart, FalloffMultiplier at FalloffEnd)
+      Accuracy        cone in degrees: Base * stance * (aim or hip multiplier) + spray;
+                      spray grows PerShot up to Max and drains after RecoveryDelay over RecoveryTime
+      Pellets         Count per shot and extra Spread per pellet (shotguns)
+      Recoil          Camera kick in degrees, Viewmodel kick for first person
+      Ads             aim down sights: Fov, camera Distance, Shoulder, Time to settle, AimTime
+                      before the accuracy bonus applies, Scope overlay
+      Effects         MuzzleFlash / Impact / Casing asset names and Tracer overrides
+                      (defaults in Settings.Effects.Tracer)
+      Sounds          slot -> sound asset name; Animations slot -> published animation id
+]]
+
+local Settings = require(script.Parent.Settings)
+
 local WeaponConfig = {}
 
+local TracerDefaults = Settings.Effects.Tracer
 local DEFAULT_GRIP = CFrame.Angles(-math.pi / 2, 0, 0)
 
 WeaponConfig.ClassOrder = { "Pistol", "SMG", "Rifle", "Shotgun", "Sniper" }
@@ -55,11 +85,12 @@ WeaponConfig.Defaults = {
         Tracer = {
             Enabled = true,
             Every = 1,
-            Speed = 1200,
-            Length = 5,
-            Width = 0.2,
-            Color = Color3.fromRGB(255, 225, 120),
-            Style = "Trail",
+            Speed = TracerDefaults.Speed,
+            Length = TracerDefaults.Length,
+            Width = TracerDefaults.Width,
+            Color = TracerDefaults.Color,
+            Style = TracerDefaults.Style,
+            Light = TracerDefaults.Light,
         },
     },
     Sounds = {},

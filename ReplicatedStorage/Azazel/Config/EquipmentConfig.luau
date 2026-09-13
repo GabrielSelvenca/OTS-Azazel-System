@@ -1,3 +1,18 @@
+--[[
+    Equipment configuration (helmet, vest, ...).
+
+    A piece is a module under Config/Equipment that returns:
+      Name, DisplayName
+      Zone              "Head" | "Torso": which hit zone it protects
+      DamageMultiplier  damage taken on that zone is multiplied by this (0.6 = blocks 40%)
+      Durability        optional { Max, LossPerHit }; LossPerHit is a number per hit or "Blocked"
+                        to lose the damage it absorbed. Omit it for a piece that never breaks.
+      Modifiers         optional { MagazineSize = { Add, Mul }, Reserve, Accuracy, RecoilCamera,
+                        ReloadTime, WalkSpeed }; StackModifiers sums Add and multiplies Mul
+                        across every equipped piece
+      Model             optional asset name under Assets/Equipment
+]]
+
 local EquipmentConfig = {}
 
 EquipmentConfig.Zones = { "Head", "Torso" }

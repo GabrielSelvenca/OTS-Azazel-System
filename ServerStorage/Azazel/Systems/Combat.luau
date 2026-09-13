@@ -125,10 +125,11 @@ local function damageVictim(player: Player, cfg, hitPart: BasePart, origin: Vect
 end
 
 local DEBUG_FOLDER = "AzazelServerDebug"
-local DEBUG_TRACER_LIFETIME = 0.15
 
 local function debugTracers(origin: Vector3, ends: { Vector3 })
-    if not Settings.Debug.ServerTracers or not RunService:IsStudio() then
+    local debugSettings = Settings.Debug
+    local tracers = debugSettings.ServerTracers
+    if not debugSettings.Enabled or not tracers.Enabled or not RunService:IsStudio() then
         return
     end
     local folder = workspace:FindFirstChild(DEBUG_FOLDER)
@@ -149,11 +150,11 @@ local function debugTracers(origin: Vector3, ends: { Vector3 })
         part.CanTouch = false
         part.CastShadow = false
         part.Material = Enum.Material.Neon
-        part.Color = Color3.fromRGB(255, 80, 80)
-        part.Size = Vector3.new(0.08, 0.08, distance)
+        part.Color = tracers.Color
+        part.Size = Vector3.new(tracers.Width, tracers.Width, distance)
         part.CFrame = CFrame.lookAt(origin, endPoint) * CFrame.new(0, 0, -distance / 2)
         part.Parent = folder
-        Debris:AddItem(part, DEBUG_TRACER_LIFETIME)
+        Debris:AddItem(part, tracers.Lifetime)
     end
 end
 

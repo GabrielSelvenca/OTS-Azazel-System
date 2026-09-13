@@ -1,7 +1,6 @@
 local Client = require(script.Parent.Parent)
 local package = script.Parent.Parent.Parent
 local Settings = require(package.Config.Settings)
-local WeaponConfig = require(package.Config.WeaponConfig)
 local Accuracy = require(package.Shared.Accuracy)
 local UIKit = require(package.Shared.UIKit)
 
@@ -13,9 +12,6 @@ local Strings = Settings.Strings
 local Theme = UIKit.Theme
 
 local CROSSHAIR_DIRECTIONS = { Vector2.new(0, -1), Vector2.new(0, 1), Vector2.new(-1, 0), Vector2.new(1, 0) }
-local ARMOR_ZONES = { "Head", "Torso" }
-local SLOT_WIDTH = 72
-local SLOT_HEIGHT = 44
 
 local crosshairLines: { Frame } = {}
 local crosshairFrame: Frame? = nil
@@ -25,8 +21,6 @@ local ammoLabel: TextLabel? = nil
 local reserveLabel: TextLabel? = nil
 local modeLabel: TextLabel? = nil
 local statusLabel: TextLabel? = nil
-local hotbarSlots: { { Frame: Frame, Name: TextLabel, Stroke: UIStroke } } = {}
-local armorRows: { [string]: { Frame: Frame, Label: TextLabel, Bar: Frame } } = {}
 local hitmarkerToken = 0
 
 local function buildCrosshair(parent: Instance)
@@ -162,104 +156,6 @@ local function buildAmmoPanel(parent: Instance)
     })
 end
 
-local function buildHotbar(parent: Instance)
-    local count = Settings.Server.MaxSlots
-    local bar = UIKit.New("Frame", {
-        Name = "Hotbar",
-        AnchorPoint = Vector2.new(0.5, 1),
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0.5, 0, 1, -24),
-        Size = UDim2.fromOffset(count * (SLOT_WIDTH + 6), SLOT_HEIGHT),
-        ListLayout = { Direction = Enum.FillDirection.Horizontal, Padding = 6, HorizontalAlignment = Enum.HorizontalAlignment.Center },
-        Parent = parent,
-    })
-    for index = 1, count do
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Theme.Accent
-        stroke.Thickness = 2
-        stroke.Transparency = 1
-        local frame = UIKit.New("Frame", {
-            Name = `Slot{index}`,
-            LayoutOrder = index,
-            BackgroundColor3 = Theme.Panel,
-            BackgroundTransparency = Theme.PanelTransparency,
-            Size = UDim2.fromOffset(SLOT_WIDTH, SLOT_HEIGHT),
-            Corner = 6,
-            Parent = bar,
-        }) :: Frame
-        stroke.Parent = frame
-        UIKit.Text({
-            Name = "Number",
-            Position = UDim2.fromOffset(6, 3),
-            Size = UDim2.fromOffset(16, 14),
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextColor3 = Theme.Muted,
-            TextSize = 11,
-            Text = tostring(index),
-            Parent = frame,
-        })
-        local name = UIKit.Text({
-            Name = "Name",
-            Position = UDim2.fromOffset(4, 18),
-            Size = UDim2.new(1, -8, 0, 20),
-            TextSize = 11,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            Text = "",
-            Parent = frame,
-        })
-        hotbarSlots[index] = { Frame = frame, Name = name, Stroke = stroke }
-    end
-end
-
-local function buildArmorPanel(parent: Instance)
-    local panel = UIKit.New("Frame", {
-        Name = "ArmorPanel",
-        AnchorPoint = Vector2.new(0, 1),
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 24, 1, -24),
-        Size = UDim2.fromOffset(180, 2 * 26),
-        ListLayout = { Padding = 6, VerticalAlignment = Enum.VerticalAlignment.Bottom },
-        Parent = parent,
-    })
-    for order, zone in ARMOR_ZONES do
-        local row = UIKit.New("Frame", {
-            Name = zone,
-            LayoutOrder = order,
-            BackgroundColor3 = Theme.Panel,
-            BackgroundTransparency = Theme.PanelTransparency,
-            Size = UDim2.new(1, 0, 0, 20),
-            Corner = 4,
-            Visible = false,
-            Parent = panel,
-        }) :: Frame
-        local label = UIKit.Text({
-            Name = "Label",
-            Position = UDim2.fromOffset(6, 0),
-            Size = UDim2.new(1, -12, 0, 12),
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextSize = 10,
-            TextColor3 = Theme.Muted,
-            Text = "",
-            Parent = row,
-        })
-        local track = UIKit.New("Frame", {
-            Name = "Track",
-            Position = UDim2.new(0, 6, 1, -6),
-            Size = UDim2.new(1, -12, 0, 3),
-            BackgroundColor3 = Theme.Muted,
-            BackgroundTransparency = 0.6,
-            Parent = row,
-        })
-        local bar = UIKit.New("Frame", {
-            Name = "Bar",
-            Size = UDim2.fromScale(1, 1),
-            BackgroundColor3 = Theme.Accent,
-            Parent = track,
-        }) :: Frame
-        armorRows[zone] = { Frame = row, Label = label, Bar = bar }
-    end
-end
-
 local function statusFor(state): string
     if state.EquipState == "Reloading" then
         return Strings.Reloading
@@ -271,32 +167,6 @@ local function statusFor(state): string
         return Strings.Empty
     end
     return ""
-end
-
-local function refreshHotbar(state)
-    for index, slot in hotbarSlots do
-        local weaponName = state.Slots[index]
-        local cfg = if weaponName then WeaponConfig.Get(weaponName) else nil
-        slot.Name.Text = if cfg then cfg.DisplayName else ""
-        slot.Frame.BackgroundTransparency = if cfg then Theme.PanelTransparency else 0.8
-        slot.Stroke.Transparency = if index == state.Slot then 0 else 1
-    end
-end
-
-local function refreshArmor(state)
-    for zone, row in armorRows do
-        local piece = state.Equipment and state.Equipment[zone]
-        row.Frame.Visible = piece ~= nil
-        if piece then
-            row.Label.Text = piece.DisplayName or piece.Name
-            local fraction = 1
-            if piece.Durability and piece.MaxDurability and piece.MaxDurability > 0 then
-                fraction = math.clamp(piece.Durability / piece.MaxDurability, 0, 1)
-            end
-            row.Bar.Size = UDim2.fromScale(fraction, 1)
-            row.Bar.BackgroundColor3 = if fraction < 0.3 then Theme.Danger else Theme.Accent
-        end
-    end
 end
 
 local function refreshState(state)
@@ -314,8 +184,6 @@ local function refreshState(state)
     if crosshairFrame then
         crosshairFrame.Visible = config ~= nil
     end
-    refreshHotbar(state)
-    refreshArmor(state)
 end
 
 local function refreshAmmo(current: number, reserve: number)
@@ -357,8 +225,6 @@ function HudController.Start()
     buildCrosshair(screen)
     buildHitmarker(screen)
     buildAmmoPanel(screen)
-    buildHotbar(screen)
-    buildArmorPanel(screen)
     setGap(HudSettings.Crosshair.BaseGap)
     if Client.State then
         refreshState(Client.State)

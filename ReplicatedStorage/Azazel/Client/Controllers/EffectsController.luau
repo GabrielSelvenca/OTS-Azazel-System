@@ -15,9 +15,8 @@ local EffectsController = {}
 
 local Signals = Client.Signals
 local EffectSettings = Settings.Effects
+local TracerSettings = EffectSettings.Tracer
 local localPlayer = Players.LocalPlayer
-
-local TRAIL_LIFETIME = 0.08
 
 local folder: Folder? = nil
 local tracerCache = nil
@@ -46,33 +45,41 @@ local function buildTracerTemplate(): BasePart
     part.CanQuery = false
     part.CanTouch = false
     part.CastShadow = false
-    part.Material = Enum.Material.Neon
-    part.Size = Vector3.new(0.06, 0.06, 6)
+    part.Material = TracerSettings.Material
+    part.Color = TracerSettings.Color
+    part.Size = Vector3.new(TracerSettings.Width, TracerSettings.Width, TracerSettings.Length)
     part.Transparency = 0
 
     local front = Instance.new("Attachment")
     front.Name = "Front"
-    front.Position = Vector3.new(0, 0.03, 0)
+    front.Position = Vector3.new(0, TracerSettings.Width / 2, 0)
     front.Parent = part
     local back = Instance.new("Attachment")
     back.Name = "Back"
-    back.Position = Vector3.new(0, -0.03, 0)
+    back.Position = Vector3.new(0, -TracerSettings.Width / 2, 0)
     back.Parent = part
 
     local trail = Instance.new("Trail")
     trail.Attachment0 = front
     trail.Attachment1 = back
-    trail.Lifetime = TRAIL_LIFETIME
+    trail.Enabled = false
+    trail.Lifetime = TracerSettings.Length / TracerSettings.Speed
     trail.LightEmission = 1
     trail.LightInfluence = 0
     trail.MinLength = 0
     trail.FaceCamera = true
-    trail.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.2),
-        NumberSequenceKeypoint.new(1, 1),
-    })
-    trail.WidthScale = NumberSequence.new(1, 0.3)
+    trail.Transparency = TracerSettings.Trail.Transparency
+    trail.WidthScale = TracerSettings.Trail.WidthScale
     trail.Parent = part
+
+    local light = Instance.new("PointLight")
+    light.Name = "Light"
+    light.Enabled = false
+    light.Shadows = TracerSettings.Light.Shadows
+    light.Brightness = TracerSettings.Light.Brightness
+    light.Range = TracerSettings.Light.Range
+    light.Color = TracerSettings.Color
+    light.Parent = part
     return part
 end
 
@@ -130,6 +137,18 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
         trail.Color = ColorSequence.new(tracer.Color)
         trail.Enabled = false
     end
+    local light = part:FindFirstChildOfClass("PointLight")
+    local lightConfig = tracer.Light
+    if light then
+        local wanted = quality.TracerLight and lightConfig ~= nil and lightConfig.Enabled == true
+        if wanted then
+            light.Brightness = lightConfig.Brightness
+            light.Range = lightConfig.Range
+            light.Shadows = lightConfig.Shadows == true
+            light.Color = tracer.Color
+        end
+        light.Enabled = wanted
+    end
     local live = {
         Part = part,
         From = from,
@@ -140,6 +159,7 @@ local function spawnTracer(from: Vector3, to: Vector3, tracer)
         Length = tracer.Length,
         Trail = trail,
         TrailPending = quality.TracerTrail and trail ~= nil,
+        Light = light,
     }
     placeTracer(live)
     table.insert(liveTracers, live)
@@ -162,6 +182,9 @@ local function stepTracers(dt: number)
             if tracer.Trail then
                 tracer.Trail.Enabled = false
                 tracer.Trail:Clear()
+            end
+            if tracer.Light then
+                tracer.Light.Enabled = false
             end
             cache:ReturnPart(tracer.Part)
             table.remove(liveTracers, index)
@@ -201,7 +224,7 @@ function EffectsController.Start()
                 local skew = if fromMuzzle.Magnitude > 0.01 and fromHead.Magnitude > 0.01
                     then ShotDebug.AngleBetween(fromMuzzle, fromHead)
                     else 0
-                print(string.format(
+                ShotDebug.Log(string.format(
                     "[Azazel:Tracer] pellet %d muzzle=%s end=%s tracerDist=%.2f tracerDir=%s skewFromShot=%.2f%s",
                     index,
                     ShotDebug.Vector(muzzle),

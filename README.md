@@ -21,10 +21,11 @@ It is not a player guide.
   toggle. A viewmodel cloned from the player's own rig (planned, see Roadmap).
 - Weapons are Models attached to the character by a Motor6D, so hand made animations can move
   the weapon inside the hand. No Tools, no Backpack.
-- HUD built entirely in code: crosshair that opens with the spray, ammo panel, hotbar, armor
-  bars, hitmarker.
+- HUD built entirely in code: crosshair that opens with the spray, ammo panel, hitmarker.
+  Weapon slots switch with the number keys; the Roblox Backpack will show them (planned).
 - Closed remote registry with schema validation and rate limits on every request.
-- Equipment (helmet, vest) that reduces damage by zone, with durability.
+- Equipment (helmet, vest) that reduces damage by zone. Durability is supported by the config
+  but the shipped pieces never break.
 
 ## Requirements
 
@@ -132,7 +133,8 @@ Armor pieces are data too. `Config/Equipment/<Name>.luau` declares a `Zone` (`He
 a `DamageMultiplier`, an optional `Durability` (`Max` plus `LossPerHit`, either `"Blocked"` to
 lose the damage it prevented or a fixed number) and a `Modifiers` table stacked on the equipped
 weapon (`MagazineSize`, `Reserve`, `Accuracy`, `RecoilCamera`, `ReloadTime`, each `{ Add, Mul }`).
-One piece per zone; giving another replaces it. A piece whose durability hits zero is removed.
+One piece per zone; giving another replaces it. A piece whose durability hits zero is removed;
+the shipped `HelmetLight` and `VestLight` have no durability and last forever.
 
 ```lua
 Azazel.GiveEquipment(player, "HelmetLight")
@@ -200,6 +202,25 @@ Per weapon, in degrees:
 The client runs the same math only to size the crosshair. The server rolls the actual
 direction, per pellet, with its own random generator.
 
+## Settings
+
+Everything tunable that is not per weapon lives in `ReplicatedStorage/Azazel/Config/Settings.luau`,
+one table per area: `Camera`, `Viewmodel`, `Keys`, `Hud`, `Server`, `Animations`, `Quality`,
+`Effects`, `Debug`, `Strings`. Weapons and equipment have their own modules under `Config/`.
+
+`Settings.Effects.Tracer` is the default look of every tracer (color, width, length, speed, trail
+fade, light). A weapon or class overrides any of those fields in `Effects.Tracer`.
+
+The tracer light is a `PointLight` without shadows. With `Lighting.Technology` on Voxel or
+Compatibility, Roblox computes point lights on a 4 stud grid and a moving light shows up as
+blocky patches on the ground; set it to ShadowMap or Future (Studio, Lighting properties; it is
+not scriptable). `Doctor()` warns about it. Turn the light off with
+`Settings.Effects.Tracer.Light.Enabled = false`, or per quality level with `TracerLight`.
+
+`Settings.Debug.Enabled` is the master switch for the visual debug helpers (`ServerTracers`,
+`ClientShots`), which are Studio only either way. `PrintBoot` and `LogRejections` are independent
+of it and safe to leave on.
+
 ## Quality levels
 
 Effects scale with the player. `ReplicatedStorage/Azazel/Client/Quality` reads the graphics
@@ -230,8 +251,10 @@ direction not unit or not finite, direction more than `MaxYawDelta` degrees away
 character faces, pitch above `MaxPitch`. Rejections resync the client and, with
 `Settings.Debug.LogRejections`, print to the Output.
 
-`Settings.Debug.ServerTracers` draws a red line per shot from the server, Studio only, so the
-Server view of a playtest shows where the server thinks bullets went. It never runs live.
+With `Settings.Debug.Enabled`, `Settings.Debug.ServerTracers` draws a line per shot from the
+server, Studio only, so the Server view of a playtest shows where the server thinks bullets
+went, and `Settings.Debug.ClientShots` draws and prints the client side of every shot. Neither
+runs live.
 
 Every remote is declared in `Shared/Remotes.luau` with a payload schema and a per player rate
 limit. `Settings.Server.KickOnAbuse` kicks after `AbuseThreshold` violations. The package has
