@@ -2,6 +2,11 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.16
+
+- Dev: `Handle1`, `ScopeRet` and `Retikle` (Viethin left hand and scope reticle markers) join
+  the import discard list.
+
 ## 0.2.0-alpha.15
 
 - Dev: `ImportWeapons(container, options)` imports every Tool or Model in a container; module

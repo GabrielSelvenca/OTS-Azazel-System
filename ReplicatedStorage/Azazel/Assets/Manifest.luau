@@ -23,6 +23,6 @@ return {
     Import = {
         MovingParts = { "Magazine" },
         AttachmentParts = { Muzzle = "Muzzle" },
-        Discard = { "PanMuzzle", "BayonetHitBox", "BayonetBlade", "StockClips" },
+        Discard = { "Handle1", "PanMuzzle", "BayonetHitBox", "BayonetBlade", "StockClips", "ScopeRet", "Retikle" },
     },
 }
