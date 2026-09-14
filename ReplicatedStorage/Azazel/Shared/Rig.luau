@@ -12,6 +12,7 @@ Rig.R6 = {
     HandOffset = CFrame.new(0, -1, 0),
     ViewmodelKeep = { "HumanoidRootPart", "Torso", "Left Arm", "Right Arm" },
     ViewmodelJoints = { "RootJoint", "Left Shoulder", "Right Shoulder" },
+    PoseJoints = { RightArm = "Right Shoulder", LeftArm = "Left Shoulder" },
     Zones = {
         Head = "Head",
         Torso = "Torso",
@@ -34,6 +35,7 @@ Rig.R15 = {
     HandOffset = CFrame.new(0, -0.15, 0),
     ViewmodelKeep = { "HumanoidRootPart", "UpperTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand" },
     ViewmodelJoints = { "Root", "Waist", "LeftShoulder", "LeftElbow", "LeftWrist", "RightShoulder", "RightElbow", "RightWrist" },
+    PoseJoints = { RightArm = "RightShoulder", LeftArm = "LeftShoulder" },
     Zones = {
         Head = "Head",
         UpperTorso = "Torso",

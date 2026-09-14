@@ -9,6 +9,9 @@
 
     Fields (Defaults below shows every one with its default value):
       Grip            CFrame of the Handle relative to the hand; tune with Dev.Commands.PrintGrip
+      Pose            rest pose of the arms while no animation plays (first person): per arm,
+                      degrees in torso space; Pitch raises the arm forward, Yaw swings it toward
+                      the center (positive for the right arm, negative for the left), Roll twists
       FireModes       list of "Auto" | "Semi" | "Burst"; the first is the default
       Rpm, Burst      rounds per minute; Burst.Count shots per press at Burst.Rpm
       Magazine, Reserve, Reload{Time, EmptyTime}, EquipTime   seconds
@@ -39,6 +42,10 @@ WeaponConfig.FireModes = { "Auto", "Semi", "Burst" }
 
 WeaponConfig.Defaults = {
     Grip = DEFAULT_GRIP,
+    Pose = {
+        RightArm = { Pitch = 80, Yaw = 12, Roll = 0 },
+        LeftArm = { Pitch = 84, Yaw = -42, Roll = 0 },
+    },
     FireModes = { "Semi" },
     Rpm = 400,
     Burst = { Count = 3, Rpm = 900 },

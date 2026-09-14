@@ -325,6 +325,10 @@ clone do rig na camera, arma por Motor6D, sway/bob/recoil, ADS pelo `Sight` (fal
 `Ads.ViewmodelOffset`), V alterna, boneco escondido. Feita antes da Fase 3/4 a pedido do Gabriel
 (sem animacoes para fazer no dia). Zoom pela roda em 3a pessoa (`MinDistance`/`MaxDistance`/
 `ZoomStep`). O que o Gabriel faz a mao: attachment `Sight` nas armas.
+Pose de descanso (alpha.12): sem animacao os bracos do clone ficavam caidos e nada aparecia
+na tela; `WeaponConfig.Defaults.Pose` (graus por braco) e aplicada nos ombros do viewmodel em
+`PreSimulation` enquanto nenhuma track toca. O `Idle` da Fase 4 substitui a pose sozinho. Em
+3a pessoa o boneco real continua com o braco caido ate a Fase 4 (animacao replicada).
 
 **Ragdoll (v0.2.0-alpha.10)**, pedido do Gabriel fora do plano e feito direto: so morte por
 arma Azazel; servidor desliga `BreakJointsOnDeath`, congela o boneco real e avisa todos os

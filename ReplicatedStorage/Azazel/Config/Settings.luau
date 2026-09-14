@@ -42,7 +42,7 @@ Settings.Camera = {
 -- weapon's Sight attachment to the screen center (Ads.SightDistance per weapon), or uses
 -- Ads.ViewmodelOffset when the model has no Sight.
 Settings.Viewmodel = {
-    Offset = CFrame.new(0, -1.55, -0.35),                                -- rig root relative to the camera
+    Offset = CFrame.new(0, -1.9, -0.5),                                  -- rig root relative to the camera
     Sway = { Amount = 0.06, Clamp = 0.25, Damping = 0.7, Frequency = 6 }, -- radians per 10 px of mouse movement, clamp in radians
     Bob = { X = 0.04, Y = 0.03, Speed = 9 },                              -- walk bob amplitude (studs) and speed
     AimSwayMultiplier = 0.3,                                             -- sway kept while aiming

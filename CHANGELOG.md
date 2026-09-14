@@ -2,6 +2,16 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.12
+
+- Viewmodel: rest pose. While no animation plays, the viewmodel's shoulders hold `Pose` from
+  the weapon config (`RightArm`/`LeftArm` as `Pitch`/`Yaw`/`Roll` degrees in torso space,
+  defaults in `WeaponConfig.Defaults`, overridable per class or weapon), so the arms and the
+  weapon are raised in front of the camera instead of hanging below the screen. Applied in
+  `PreSimulation`, after the Animator, so an `Idle` animation replaces it once one exists.
+  `Rig.PoseJoints` names the shoulder joints per rig. `Settings.Viewmodel.Offset` lowered to
+  `(0, -1.9, -0.5)` so the raised arms come from below the screen edge.
+
 ## 0.2.0-alpha.11
 
 - Docs: `CLAUDE.md` describes the Script Sync layout, the git rules, the architecture and the

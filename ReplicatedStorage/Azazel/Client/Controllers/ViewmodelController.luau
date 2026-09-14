@@ -26,6 +26,7 @@ local characterTrove = nil
 local viewmodel: Model? = nil
 local viewmodelRoot: BasePart? = nil
 local viewmodelWeapon: Model? = nil
+local poseMotors: { [string]: Motor6D } = {}
 local weaponConfig = nil
 local mouseDelta = Vector2.zero
 local bobTime = 0
@@ -119,6 +120,17 @@ local function destroyViewmodel()
     end
     viewmodel = nil
     viewmodelRoot = nil
+    poseMotors = {}
+end
+
+local function collectPoseMotors(clone: Model, rig)
+    poseMotors = {}
+    for arm, jointName in rig.PoseJoints do
+        local motor = clone:FindFirstChild(jointName, true)
+        if motor and motor:IsA("Motor6D") then
+            poseMotors[arm] = motor
+        end
+    end
 end
 
 local function buildViewmodel()
@@ -153,6 +165,7 @@ local function buildViewmodel()
     clone.Parent = camera()
     viewmodel = clone
     viewmodelRoot = root
+    collectPoseMotors(clone, rig)
     attachWeapon()
 end
 
@@ -224,6 +237,32 @@ local function step(dt: number)
         * CFrame.new(bobNow.X, bobNow.Y, 0)
         * CFrame.new(0, 0, recoilNow.Z)
         * CFrame.Angles(math.rad(recoilNow.Y), 0, 0)
+end
+
+local function poseTransform(motor: Motor6D, angles): CFrame
+    local rotation = CFrame.Angles(0, math.rad(angles.Yaw), 0)
+        * CFrame.Angles(math.rad(angles.Pitch), 0, 0)
+        * CFrame.Angles(0, 0, math.rad(angles.Roll))
+    local joint = motor.C0.Rotation
+    return joint:Inverse() * rotation * joint
+end
+
+-- After the Animator has written Transform for this frame and before physics reads it.
+local function applyPose()
+    local cfg = Client.Config
+    if not viewmodel or not cfg then
+        return
+    end
+    local animator = ViewmodelController.GetAnimator()
+    if animator and #animator:GetPlayingAnimationTracks() > 0 then
+        return
+    end
+    for arm, motor in poseMotors do
+        local angles = cfg.Pose[arm]
+        if angles then
+            motor.Transform = poseTransform(motor, angles)
+        end
+    end
 end
 
 local function onCharacter(newCharacter: Model?)
@@ -299,6 +338,7 @@ function ViewmodelController.Start()
 
     retargetAds()
     RunService:BindToRenderStep(RENDER_NAME, RENDER_PRIORITY, step)
+    RunService.PreSimulation:Connect(applyPose)
 end
 
 return ViewmodelController
