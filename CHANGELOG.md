@@ -2,6 +2,12 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.14
+
+- Dev: the import keeps only what the system reads. `Muzzle` attachment and `Magazine` Motor6D
+  by default; `Bolt`, `Eject`, `LeftHand` and the Viethin particle emitters are no longer
+  carried over. Everything not geometry or joint is destroyed. Lists in `Manifest.Import`.
+
 ## 0.2.0-alpha.13
 
 - Dev: `ImportWeapon` grew into `Dev/WeaponImport`. Optional `{ Scale, Material }`, marker

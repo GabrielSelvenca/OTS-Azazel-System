@@ -3,13 +3,13 @@
     Studio only, called by Dev.Commands.ImportWeapon. Name tables live in Assets/Manifest.Import.
 
     - Scale: Model:ScaleTo, one factor for a whole pack keeps the guns proportional.
-    - Marker parts (Muzzle, Casing, Handle1...) become Attachments on the Handle; their
-      effects (emitters, lights) move with them, disabled.
-    - Moving parts (Magazine, Bolt...) get a Motor6D from the Handle instead of a weld, so the
-      Animation Editor sees them as joints. A part named <Name>Attachment is used as the pivot
-      (the Viethin rig convention); <Name>Rotation helpers are dropped.
+    - Marker parts (Muzzle) become Attachments on the Handle.
+    - Moving parts (Magazine) get a Motor6D from the Handle instead of a weld, so the Animation
+      Editor sees them as joints. A part named <Name>Attachment is used as the pivot (the
+      Viethin rig convention); <Name>Rotation helpers are dropped.
     - Every Sound moves to Assets/Sounds/<Weapon>/ for the game to reuse.
-    - Everything that is not geometry, a joint or an effect is destroyed.
+    - Everything else that is not geometry or a joint is destroyed. The weapon keeps only what
+      Azazel reads; the name lists above are the whole contract.
 ]]
 
 local package = script.Parent.Parent
@@ -23,7 +23,6 @@ local Import = Manifest.Import
 local KEEP_CLASSES = {
     "BasePart", "Attachment", "JointInstance", "WeldConstraint",
     "SurfaceAppearance", "Texture", "Decal", "DataModelMesh",
-    "ParticleEmitter", "Light", "Beam", "Trail",
 }
 
 export type Options = {
@@ -98,12 +97,6 @@ local function convertAttachmentParts(model: Model, handle: BasePart, report: Re
         attachment.Name = attachmentName
         attachment.CFrame = handle.CFrame:ToObjectSpace(part.CFrame)
         attachment.Parent = handle
-        for _, child in part:GetChildren() do
-            if child:IsA("ParticleEmitter") or child:IsA("Light") or child:IsA("Beam") then
-                child.Enabled = false
-                child.Parent = attachment
-            end
-        end
         part:Destroy()
         table.insert(report.Attachments, attachmentName)
     end

@@ -153,15 +153,16 @@ Azazel.EquipmentChanged:Connect(function(player, zone, cfg) end)   -- cfg nil wh
    import: `{ Scale = 0.03, Material = "SmoothPlastic" }` (`Scale` is `Model:ScaleTo`, use the
    same factor for a whole pack so the guns stay proportional; `Material` is for flat colored
    meshes).
-   The import strips every script and every Value, marker parts named `Muzzle`, `Casing`
-   (`Casingg`) and `Handle1` become the `Muzzle`, `Eject` and `LeftHand` attachments on the
-   `Handle` (their particle emitters move along, disabled), parts named `Magazine`, `Bolt`,
-   `Bolt2`, `Slide`, `Pump`, `Lever` or `Cylinder` get a `Motor6D` from the `Handle` so the
-   Animation Editor can move them (a part named `<Name>Attachment` marks the pivot, as in the
-   Viethin rig), every `Sound` moves to `Assets/Sounds/AK47/`, the rest is welded to the
-   `Handle` with collisions and queries off, and the copy lands in `Assets/Weapons/AK47`. The
-   name lists live in `Assets/Manifest.luau` under `Import`. Free models are never trusted: the
-   scripts are deleted on import and again every time the model is cloned.
+   The import keeps only what Azazel reads: a part named `Muzzle` becomes the `Muzzle`
+   attachment on the `Handle`, a part named `Magazine` gets a `Motor6D` from the `Handle` so
+   the Animation Editor can move it (a part named `MagazineAttachment` marks the pivot, as in
+   the Viethin rig), every `Sound` moves to `Assets/Sounds/AK47/` for the game to reuse, and
+   everything else that is not geometry (scripts, Values, emitters, hitboxes, helper parts) is
+   destroyed. The rest is welded to the `Handle` with collisions and queries off, and the copy
+   lands in `Assets/Weapons/AK47`. The name lists live in `Assets/Manifest.luau` under
+   `Import`; add `Bolt` or `Eject` there the day an animation or effect needs them. Free models
+   are never trusted: the scripts are deleted on import and again every time the model is
+   cloned.
 2. Create `Config/Weapons/AK47.luau`:
    ```lua
    return {
