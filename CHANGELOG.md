@@ -2,6 +2,12 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.18
+
+- Config: five weapons from the Viethin 1.8 packs, `FAL` (Rifle), `MP5A3` (SMG), `Beretta`
+  (Pistol), `Remington700` and `BFG50` (Sniper), with light overrides on magazine, rate and
+  the BFG's single round. Models are hand imported through `Dev.ImportWeapons`.
+
 ## 0.2.0-alpha.17
 
 - Dev: several `Fire*` sounds on one weapon become the layers of an `Assets/Sounds/<Weapon>/Fire`
