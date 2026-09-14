@@ -342,8 +342,22 @@ no RemoteFunctions, no HTTP, no DataStore and no secrets.
 
 Animations are made by hand in the Animation Editor, one set per weapon class, and stored as
 KeyframeSequence instances inside `Assets/Animations/<Class>/<Slot>`. Slots are `Idle`, `Fire`,
-`Reload`, `Equip` (required) and `Aim`, `ReloadEmpty`, `Sprint`, `Inspect`, `Unequip`
-(optional). A missing slot is skipped.
+`Reload`, `Equip` (required) and `Aim`, `Relaxed`, `ReloadEmpty`, `Sprint`, `Inspect`,
+`Unequip` (optional). A missing slot is skipped.
+
+| Slot | Plays | Length | Loop |
+|---|---|---|---|
+| `Equip` | once when the weapon is drawn; end it on the `Idle` pose | `EquipTime` | no |
+| `Idle` | under everything while the weapon is out: hip hold, ready to fire | free | yes |
+| `Aim` | while aiming; in first person the code also aligns `Sight` to the screen center | free | yes |
+| `Fire` | once per shot, on top of `Idle`/`Aim` | about `ShotInterval` | no |
+| `Reload` / `ReloadEmpty` | once; empty variant when the magazine was dry | `Reload.Time` / `EmptyTime` | no |
+| `Relaxed` | after a few seconds without firing or aiming, weapon lowered; any input returns to `Idle`, a shot never waits for it | free | yes |
+| `Sprint`, `Inspect`, `Unequip` | while sprinting, on the inspect key, when holstering | free / free / `EquipTime` | yes / no / no |
+
+`Reload`, `Equip` and `Unequip` are resampled with `AdjustSpeed` so the clip ends exactly when
+the config timer does. Higher slots only override the joints they key, so a `Fire` that moves
+just the `Handle` keeps the arms of `Idle` underneath.
 
 Roblox only plays KeyframeSequences directly inside Studio. In a published experience the
 animation must be uploaded by the experience owner. The workflow is:

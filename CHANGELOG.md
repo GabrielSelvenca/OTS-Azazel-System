@@ -2,6 +2,11 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.20
+
+- Animations: slot `Relaxed` (Idle priority, loop) joins the manifest for the lowered weapon
+  pose; the README lists every slot with when it plays and how long it lasts.
+
 ## 0.2.0-alpha.19
 
 - Inventory: the Roblox Backpack is the inventory (`Settings.Server.UseBackpack`, on by

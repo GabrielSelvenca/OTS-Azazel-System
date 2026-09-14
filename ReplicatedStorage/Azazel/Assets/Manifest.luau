@@ -7,9 +7,10 @@ return {
         "Sounds",
     },
     AnimationClasses = { "Pistol", "SMG", "Rifle", "Shotgun", "Sniper" },
-    AnimationSlots = { "Idle", "Fire", "Reload", "Equip", "Aim", "ReloadEmpty", "Sprint", "Inspect", "Unequip" },
+    AnimationSlots = { "Idle", "Fire", "Reload", "Equip", "Aim", "Relaxed", "ReloadEmpty", "Sprint", "Inspect", "Unequip" },
     SlotPriority = {
         Idle = Enum.AnimationPriority.Idle,
+        Relaxed = Enum.AnimationPriority.Idle,
         Aim = Enum.AnimationPriority.Movement,
         Sprint = Enum.AnimationPriority.Movement,
         Fire = Enum.AnimationPriority.Action2,
@@ -19,7 +20,7 @@ return {
         Equip = Enum.AnimationPriority.Action3,
         Unequip = Enum.AnimationPriority.Action3,
     },
-    SlotLoop = { Idle = true, Aim = true, Sprint = true },
+    SlotLoop = { Idle = true, Aim = true, Sprint = true, Relaxed = true },
     Import = {
         MovingParts = { "Magazine" },
         AttachmentParts = { Muzzle = "Muzzle" },

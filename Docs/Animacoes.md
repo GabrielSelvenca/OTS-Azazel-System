@@ -11,6 +11,19 @@ Anotacoes de pedidos fora da fase atual sobre animacao e o que ela controla. A F
 - Clique durante o intervalo entre tiros e ignorado (nao fica em fila para disparar quando o
   intervalo acaba). Vale para Semi e Burst (0.2.0-alpha.3).
 
+## Decidido para a Fase 4 (14/09)
+
+- Slot `Relaxed` (prioridade Idle, loop) entra no Manifest (alpha.20): arma baixa depois de N
+  segundos sem tiro nem mira, qualquer input volta para `Idle`, e o tiro nunca espera a
+  transicao (a bala sai, a animacao de levantar toca por cima).
+- `Aim` e por classe: em 1a pessoa o `ViewmodelController` alinha o `Sight` ao centro por cima
+  de qualquer clip, entao a diferenca de mira entre armas e o attachment, nao a animacao.
+- `Reload` por arma so quando o mecanismo difere (`Assets/Animations/Weapons/<Nome>/Reload`);
+  o `Magazine` e junta pelo nome, entao o `Reload` da classe move o pente de qualquer arma.
+- Com Backpack ligado a Tool fica no boneco e o `Animate` toca `toolnone` (prioridade Action)
+  no braco direito: `Idle`/`Aim`/`Relaxed` precisam vencer isso no `WeaponController` (tocar
+  com prioridade Action ou parar o track `toolnone` do Animate).
+
 ## Para depois (Fase 4)
 
 - **Cadencia guiada pela animacao** (pedido em 2026-09-13). Arma com atraso entre tiros (sniper
