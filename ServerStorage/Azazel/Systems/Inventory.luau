@@ -15,6 +15,7 @@ local Inventory = {}
 
 Inventory.WeaponEquipped = Signal.new()
 Inventory.EquipmentChanged = Signal.new()
+Inventory.EquipRouter = nil
 
 local states = {}
 
@@ -287,9 +288,17 @@ function Inventory.Equip(player: Player, slot: number)
     end)
 end
 
+function Inventory.RequestEquip(player: Player, slot: number)
+    (Inventory.EquipRouter or Inventory.Equip)(player, slot)
+end
+
 local function onCharacterAdded(player: Player)
     local state = states[player]
     if not state then
+        return
+    end
+    if Settings.Server.UseBackpack then
+        Inventory.Equip(player, 0)
         return
     end
     local hasWeapons = next(state.Slots) ~= nil
@@ -350,7 +359,7 @@ function Inventory.Start()
             Inventory.PushState(player)
             return
         end
-        Inventory.Equip(player, slot)
+        Inventory.RequestEquip(player, slot)
     end)
 end
 

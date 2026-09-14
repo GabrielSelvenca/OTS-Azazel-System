@@ -2,6 +2,19 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.19
+
+- Inventory: the Roblox Backpack is the inventory (`Settings.Server.UseBackpack`, on by
+  default). `Systems/Backpack` gives a slot to every Tool that names a weapon (attribute
+  `AzazelWeapon`, or `Name` equal to a config `Name`/`DisplayName`) while it is in the Backpack
+  or the character, and frees it when it leaves. The Tool stays equipped in the character
+  without a Handle; `Tool.Equipped`/`Tool.Unequipped` drive `Inventory.Equip`, so the Roblox
+  hotbar is always right. `GiveWeapon`, `RemoveWeapon`, `SetLoadout` and `Equip` create,
+  destroy and equip Tools in this mode. Slot and holster keys are unbound on the client.
+- Config: `GiveDefaultLoadoutOnSpawn` off, players spawn unarmed; `DefaultLoadout` lists the
+  Viethin weapons. The Weapons Kit configs (`AutoRifle`, `Pistol`, `Shotgun`, `SniperRifle`,
+  `SubmachineGun`) are removed; `DebugRifle` stays as the placeholder cube.
+
 ## 0.2.0-alpha.18
 
 - Config: five weapons from the Viethin 1.8 packs, `FAL` (Rifle), `MP5A3` (SMG), `Beretta`

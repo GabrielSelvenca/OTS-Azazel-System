@@ -20,9 +20,10 @@ It is not a player guide.
 - Over the shoulder camera with locked mouse, wheel zoom, shoulder swap, aim down sights and a
   first person toggle (V) with a viewmodel cloned from the player's own rig.
 - Weapons are Models attached to the character by a Motor6D, so hand made animations can move
-  the weapon inside the hand. No Tools, no Backpack.
+  the weapon inside the hand. The player's inventory is the plain Roblox Backpack: a Tool that
+  names a weapon takes a slot, and the Roblox hotbar equips it (`Settings.Server.UseBackpack`;
+  turn it off to drive slots with the number keys and the server API only).
 - HUD built entirely in code: crosshair that opens with the spray, ammo panel, hitmarker.
-  Weapon slots switch with the number keys; the Roblox Backpack will show them (planned).
 - Closed remote registry with schema validation and rate limits on every request.
 - Equipment (helmet, vest) that reduces damage by zone. Durability is supported by the config
   but the shipped pieces never break.
@@ -47,10 +48,11 @@ It is not a player guide.
    ```lua
    require(game.ReplicatedStorage.Azazel.Dev.Commands).Setup()
    ```
-3. Press Play. The Output prints `[Azazel] <version> 3/3 systems started` on the server and
-   `[Azazel] client <version> 7/7 controllers started` on the client. You spawn with the default
-   loadout (five Weapons Kit weapons, drawn as placeholder cubes until you import the models,
-   plus a light helmet and vest).
+3. Press Play. The Output prints `[Azazel] <version> 4/4 systems started` on the server and
+   `[Azazel] client <version> 7/7 controllers started` on the client. You spawn unarmed: put a
+   Tool named after a weapon in `StarterPack` (or give one from your own UI) and it shows up in
+   the Roblox hotbar; `Settings.Server.GiveDefaultLoadoutOnSpawn` hands `DefaultLoadout` to
+   everyone instead.
 
 If you clone this repository to contribute, also run `git config core.hooksPath .githooks`.
 
@@ -72,7 +74,7 @@ ReplicatedStorage/Azazel/
   Dev/Commands.luau    Studio only helpers
 ServerStorage/Azazel/
   init.luau            Server API
-  Systems/             CharacterRig, Inventory, Combat, Ragdoll
+  Systems/             CharacterRig, Inventory, Backpack, Combat, Ragdoll
 ```
 
 ## Server API
@@ -94,8 +96,22 @@ Azazel.Kill:Connect(function(player, victimPlayer, victimHumanoid, cfg) end)
 ```
 
 `Settings.Server.GiveDefaultLoadoutOnSpawn` hands `Settings.Server.DefaultLoadout` to every
-player whose inventory is empty when their character spawns. Turn it off and call
+player whose inventory is empty when their character spawns. Leave it off and call
 `SetLoadout`/`GiveWeapon` yourself if your game decides who gets what.
+
+### Backpack
+
+With `Settings.Server.UseBackpack` on (the default) the player's Backpack is the inventory.
+Any Tool whose attribute `AzazelWeapon` (or, failing that, its `Name`) matches a weapon config
+`Name` or `DisplayName` takes the first free slot while it sits in the Backpack or in the
+character, and frees it when it leaves. Put such Tools in `StarterPack`, or create them from
+your shop, pickup or loadout UI; no Handle, no scripts needed, the package sets
+`RequiresHandle = false` and `CanBeDropped = false`. The Roblox hotbar equips and unequips
+(`Tool.Equipped`/`Tool.Unequipped` drive the weapon), the number keys belong to Roblox, and
+`GiveWeapon`, `RemoveWeapon`, `SetLoadout` and `Equip` above create, destroy and equip the
+Tools so the hotbar always agrees with the state. The weapon the player sees is still the
+Model on the Motor6D. Turn `UseBackpack` off to get the previous behavior: slots on the number
+keys, no Tools.
 
 Kill credit is written on the victim `Humanoid` as attributes `AzazelLastAttackerUserId` and
 `AzazelLastWeapon`, plus a classic `creator` ObjectValue that lives for two seconds.

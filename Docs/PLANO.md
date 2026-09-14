@@ -324,6 +324,9 @@ a `Magazine`/`Bolt`/... (pivo no `<Nome>Attachment`, convencao Viethin), move so
 `Assets/Sounds/<Arma>/` e descarta o resto; `{ Scale, Material }` opcionais. Fontes de modelo
 escolhidas: Viethin 1.8 (Extension Packs publicos, so para o jogo) e Quaternius (CC0, pode ir
 dentro do pacote; pente separado no Blender com `L` + `P`, cores por vertex color bake).
+Backpack (alpha.19), adiantado a pedido do Gabriel: `Systems/Backpack` faz da Tool comum a fonte
+do inventario (ver [Inventario.md](Inventario.md)); spawn sem loadout, configs do Weapons Kit
+removidos, cinco armas Viethin no lugar.
 
 **Fase 5 — escrita (v0.2.0-alpha.9), em teste no Play.** `ViewmodelController` + `Shared/Spring`:
 clone do rig na camera, arma por Motor6D, sway/bob/recoil, ADS pelo `Sight` (fallback

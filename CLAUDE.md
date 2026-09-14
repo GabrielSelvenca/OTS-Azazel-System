@@ -25,7 +25,7 @@ services through Studio's native **Script Sync**: `ReplicatedStorage/`, `ServerS
   `Remotes.EnsureAll()`; `Assets/Manifest.luau` lists what `Dev.Doctor()` expects to find.
 
 Verification is Play in Roblox Studio (Play Solo, or Test with 2 players for replication). Boot
-prints `[Azazel] <version> 3/3 systems started` (server) and `... 7/7 controllers started`
+prints `[Azazel] <version> 4/4 systems started` (server) and `... 7/7 controllers started`
 (client). Studio-only helpers live in `ReplicatedStorage/Azazel/Dev/Commands.luau` and are run
 from the command bar (`Dev.Setup()`, `Dev.SpawnDummy(n)`, `Dev.Give(name)`, `Dev.Doctor()`,
 `Dev.PrintFalloff()`, grip tuning, animation rig); the module returns `{}` outside Studio.
@@ -59,7 +59,7 @@ The package is one folder plus one server folder plus two bootstraps:
 ### Server
 
 `ServerStorage/Azazel/init.luau` starts systems in a fixed `BOOT_ORDER` (CharacterRig ->
-Inventory -> Combat, each `Start()` in a pcall) and re-exports their Signals as the public API
+Inventory -> Backpack -> Combat, each `Start()` in a pcall) and re-exports their Signals as the public API
 (`GiveWeapon`, `SetLoadout`, `Equip`, `GetState`, `WeaponEquipped`, `Shot`, `Hit`, `Kill`...).
 
 - `Inventory` is the source of truth for per-player state: slots, ammo, reserve, fire mode,
@@ -115,7 +115,9 @@ them for the real roll, the client only to size the crosshair. `Rig` abstracts t
 `WeaponModel.Attach` is the single place a weapon is welded to a hand (Motor6D named `Handle`,
 `Part0 = Right Arm`, `C0 = Rig.HandOffset`, `C1 = cfg.Grip`); the server character, the first
 person viewmodel and the animation rig all use it, so one animation set drives all three.
-Weapons are Models, never Tools, and there is no Backpack.
+Weapons are Models, never Tools with Handles. With `Settings.Server.UseBackpack` (default) the
+Roblox Backpack is the inventory: a marker Tool per weapon (`Systems/Backpack`) takes a slot
+and its `Equipped`/`Unequipped` drive `Inventory.Equip`; the API routes through it.
 
 ### Remotes and security
 

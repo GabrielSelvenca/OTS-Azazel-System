@@ -105,11 +105,12 @@ Settings.Server = {
     KickOnAbuse = false,     -- kick after AbuseThreshold remote violations
     AbuseThreshold = 30,
     FireRateLimit = 45,      -- Fire remote calls per second per player, on top of the weapon rate
+    UseBackpack = true,      -- weapons are Tools in the Backpack; the Roblox hotbar equips them, slot keys are off
     DefaultLoadout = {       -- given on spawn when GiveDefaultLoadoutOnSpawn is true
-        Weapons = { "AutoRifle", "Pistol", "SubmachineGun", "Shotgun", "SniperRifle" },
+        Weapons = { "FAL", "MP5A3", "Beretta", "Remington700", "BFG50" },
         Equipment = { "HelmetLight", "VestLight" },
     },
-    GiveDefaultLoadoutOnSpawn = true,
+    GiveDefaultLoadoutOnSpawn = false,
     AutoEquipSlot = 1,       -- slot equipped after the loadout is given; 0 keeps the player unarmed
     MaxSlots = 5,
 }

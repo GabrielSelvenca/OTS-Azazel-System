@@ -73,14 +73,16 @@ function InputController.Start()
         Signals.InspectInput:Fire()
     end, nil, Keys.Inspect)
 
-    bind("AzazelHolster", function()
-        Signals.SlotInput:Fire(0)
-    end, nil, Keys.Holster)
+    if not Settings.Server.UseBackpack then
+        bind("AzazelHolster", function()
+            Signals.SlotInput:Fire(0)
+        end, nil, Keys.Holster)
 
-    for index, key in Keys.Slots do
-        bind(`AzazelSlot{index}`, function()
-            Signals.SlotInput:Fire(index)
-        end, nil, key)
+        for index, key in Keys.Slots do
+            bind(`AzazelSlot{index}`, function()
+                Signals.SlotInput:Fire(index)
+            end, nil, key)
+        end
     end
 
     UserInputService.InputChanged:Connect(function(input, processed)

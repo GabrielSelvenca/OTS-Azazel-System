@@ -9,13 +9,19 @@ local Remotes = require(package.Shared.Remotes)
 
 local CharacterRig = require(script.Systems.CharacterRig)
 local Inventory = require(script.Systems.Inventory)
+local Backpack = require(script.Systems.Backpack)
 local Combat = require(script.Systems.Combat)
 
 local BOOT_ORDER = {
     { Name = "CharacterRig", System = CharacterRig },
     { Name = "Inventory", System = Inventory },
+    { Name = "Backpack", System = Backpack },
     { Name = "Combat", System = Combat },
 }
+
+local function weapons()
+    return if Settings.Server.UseBackpack then Backpack else Inventory
+end
 
 local Azazel = {
     Version = Version,
@@ -55,11 +61,11 @@ function Azazel.Start()
 end
 
 function Azazel.GiveWeapon(player: Player, weaponName: string, slot: number?): number?
-    return Inventory.GiveWeapon(player, weaponName, slot)
+    return weapons().GiveWeapon(player, weaponName, slot)
 end
 
 function Azazel.RemoveWeapon(player: Player, slot: number)
-    Inventory.RemoveWeapon(player, slot)
+    weapons().RemoveWeapon(player, slot)
 end
 
 function Azazel.GiveEquipment(player: Player, equipmentName: string): boolean
@@ -71,11 +77,11 @@ function Azazel.RemoveEquipment(player: Player, zone: string)
 end
 
 function Azazel.SetLoadout(player: Player, loadout)
-    Inventory.SetLoadout(player, loadout)
+    weapons().SetLoadout(player, loadout)
 end
 
 function Azazel.Equip(player: Player, slot: number)
-    Inventory.Equip(player, slot)
+    Inventory.RequestEquip(player, slot)
 end
 
 function Azazel.GetState(player: Player)

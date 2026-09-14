@@ -10,22 +10,22 @@ Nada daqui entra antes do plano fechar.
 - Hotbar em codigo e barras de armadura removidas do HUD (alpha.5). Equipamento nao tem vida por
   enquanto (`HelmetLight`/`VestLight` sem `Durability`); o suporte continua no config e no
   Inventory para quando voltar.
+- **Backpack padrao = inventario** (alpha.19, pedido de 14/09). `Systems/Backpack`, ligado por
+  `Settings.Server.UseBackpack`. Ao contrario do rascunho antigo, a **Tool e a fonte da verdade**:
+  qualquer Tool com atributo `AzazelWeapon` (ou `Name` igual a `Name`/`DisplayName` de um config)
+  que entre no Backpack ou no boneco ganha um slot; ao sair, devolve. A Tool fica equipada no
+  boneco normalmente (sem Handle, `RequiresHandle = false`, `CanBeDropped = false`), entao a
+  hotbar da Roblox mostra o destaque certo e apertar o mesmo numero desequipa. `Tool.Equipped`
+  -> `Inventory.Equip(slot)`; `Tool.Unequipped` -> `Equip(0)` se nenhuma outra Tool estiver na
+  mao. A API (`GiveWeapon`, `RemoveWeapon`, `SetLoadout`, `Equip`) cria/destroi/equipa as Tools.
+  Teclas 1-5 e 0 do Azazel ficam desligadas nesse modo. Spawn sem loadout
+  (`GiveDefaultLoadoutOnSpawn = false`): a UI de armas do jogo entrega a Tool.
+- Efeito colateral bom: com a Tool no boneco, o `Animate` da Roblox toca `toolnone` e levanta o
+  braco direito em 3a pessoa, entao a arma fica erguida ate o `Idle` da Fase 4 existir. Na Fase
+  4 o `Idle` precisa de prioridade Action para vencer o `toolnone` no braco.
 
 ## Para depois
 
-- **Hotbar = Backpack padrao da Roblox** (pedido em 2026-09-13). A UI padrao so lista Tools, entao
-  cada slot vira uma Tool marcadora no `Backpack` (`RequiresHandle = false`, `CanBeDropped = false`,
-  `ToolTip = DisplayName`, sem Handle). Clicar/apertar o numero na UI da Roblox dispara
-  `Tool.Equipped`; o server trata isso como `Equip(slot)` e devolve a Tool ao Backpack na hora,
-  para a Roblox nao tentar segurar nada (a arma continua sendo o Model no Motor6D). Selecionar a
-  Tool ja equipada = `Equip(0)`. O Inventory continua a fonte da verdade e cria/destroi as Tools
-  ao dar/remover arma. Precisa checar: `Humanoid:UnequipTools()` sem flicker, ordem dos slots na
-  UI (Backpack ordena por insercao), e desligar o Backpack quando o jogo quiser HUD propria.
-- **Armas na Backpack sem serem Tool comum** (pedido em 2026-09-13). Ideia: cada arma do jogador
-  vira um item no `Backpack` (Folder/ObjectValue com atributos, ou Tool com `Enabled = false`
-  e `RequiresHandle = false` so como marcador) para o jogo que integra poder ler o inventario
-  pelo Backpack. A UI padrao da Roblox nao mostra nada que nao seja Tool, entao Folder e a
-  opcao segura. O Inventory do server continua sendo a fonte da verdade.
 - **Desequipar = ficar "normal"**: com slot 0, esconder toda a UI do Azazel (crosshair, municao,
   hotbar, armadura), devolver a camera para o padrao da Roblox (`CameraType.Custom`, mouse
   livre, `AutoRotate = true`) e parar os binds de tiro/mira. Ao equipar qualquer slot tudo volta
