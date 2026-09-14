@@ -2,6 +2,11 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.11
+
+- Docs: `CLAUDE.md` describes the Script Sync layout, the git rules, the architecture and the
+  working conventions for Claude Code sessions. GitHub remote added.
+
 ## 0.2.0-alpha.10
 
 - Ragdoll on death by an Azazel weapon, and only then. The server (`Systems/Ragdoll`) turns
