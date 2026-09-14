@@ -2,6 +2,13 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.21
+
+- Animations: the slot set is `Relaxed`, `Idle`, `Aim`, `Fire`, `Reload` (`ReloadEmpty`
+  optional); `Equip`, `Unequip`, `Sprint` and `Inspect` stay optional. The README describes the
+  weapon states (drawn lowered, ready on F, aim from ready, reload from both) that the animation
+  milestone implements; `AnimationIds` template updated.
+
 ## 0.2.0-alpha.20
 
 - Animations: slot `Relaxed` (Idle priority, loop) joins the manifest for the lowered weapon

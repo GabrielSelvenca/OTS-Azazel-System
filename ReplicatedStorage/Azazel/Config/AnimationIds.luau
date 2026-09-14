@@ -9,11 +9,11 @@
 ]]
 
 return {
-    Pistol = { Idle = "", Fire = "", Reload = "", Equip = "" },
-    SMG = { Idle = "", Fire = "", Reload = "", Equip = "" },
-    Rifle = { Idle = "", Fire = "", Reload = "", Equip = "" },
-    Shotgun = { Idle = "", Fire = "", Reload = "", Equip = "" },
-    Sniper = { Idle = "", Fire = "", Reload = "", Equip = "" },
+    Pistol = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
+    SMG = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
+    Rifle = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
+    Shotgun = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
+    Sniper = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
     Weapons = {},
     R15 = {},
 }

@@ -341,32 +341,33 @@ no RemoteFunctions, no HTTP, no DataStore and no secrets.
 ## Animations
 
 Animations are made by hand in the Animation Editor, one set per weapon class, and stored as
-KeyframeSequence instances inside `Assets/Animations/<Class>/<Slot>`. Slots are `Idle`, `Fire`,
-`Reload`, `Equip` (required) and `Aim`, `Relaxed`, `ReloadEmpty`, `Sprint`, `Inspect`,
-`Unequip` (optional). A missing slot is skipped.
+KeyframeSequence instances inside `Assets/Animations/<Class>/<Slot>`. The weapon has three
+resting states and two actions, one slot each: the rest is optional and skipped when absent.
 
 | Slot | Plays | Length | Loop |
 |---|---|---|---|
-| `Equip` | once when the weapon is drawn; end it on the `Idle` pose | `EquipTime` | no |
-| `Idle` | under everything while the weapon is out: hip hold, ready to fire | free | yes |
-| `Aim` | while aiming; in first person the code also aligns `Sight` to the screen center | free | yes |
+| `Relaxed` | as soon as the weapon is drawn: in the hand, lowered, not armed. Aiming and firing are off; reloading works | free | yes |
+| `Idle` | after the ready key (`Keys.Ready`, F): armed, hip hold, can fire. The key toggles back to `Relaxed` | free | yes |
+| `Aim` | while the aim button is held from `Idle`; in first person the code also aligns `Sight` to the screen center | free | yes |
 | `Fire` | once per shot, on top of `Idle`/`Aim` | about `ShotInterval` | no |
-| `Reload` / `ReloadEmpty` | once; empty variant when the magazine was dry | `Reload.Time` / `EmptyTime` | no |
-| `Relaxed` | after a few seconds without firing or aiming, weapon lowered; any input returns to `Idle`, a shot never waits for it | free | yes |
-| `Sprint`, `Inspect`, `Unequip` | while sprinting, on the inspect key, when holstering | free / free / `EquipTime` | yes / no / no |
+| `Reload` / `ReloadEmpty` | once, from `Relaxed` or `Idle`, back to the same state; empty variant when the magazine was dry | `Reload.Time` / `EmptyTime` | no |
+| `Equip`, `Unequip`, `Sprint`, `Inspect` | optional: drawing, holstering, sprinting, inspect key. Sprint only changes speed by default; legs keep the Roblox `Animate` | `EquipTime` / `EquipTime` / free / free | no / no / yes / no |
 
 `Reload`, `Equip` and `Unequip` are resampled with `AdjustSpeed` so the clip ends exactly when
 the config timer does. Higher slots only override the joints they key, so a `Fire` that moves
-just the `Handle` keeps the arms of `Idle` underneath.
+just the `Handle` keeps the arms of `Idle` underneath. Animate only `Right Arm`, `Left Arm`,
+`Handle` and `Magazine` (plus `Torso` if you want); the root, head and legs stay with the
+default `Animate`, so walking and jumping keep working under every slot.
 
 Roblox only plays KeyframeSequences directly inside Studio. In a published experience the
 animation must be uploaded by the experience owner. The workflow is:
 
-1. Build the reference rig: `Dev.BuildAnimationRig("AutoRifle")`. It spawns an R6 dummy in front
+1. Build the reference rig: `Dev.BuildAnimationRig("FAL")`. It spawns an R6 dummy in front
    of the camera with the weapon attached by the same Motor6D used in game and selects it.
-2. Open the Animation Editor on the rig, animate `Right Arm`, `Left Arm` and `Handle` (and
-   `Torso` if you want), and save each animation named exactly by its slot (`Idle`, `Fire`,
-   `Reload`, `Equip`). The editor stores them as KeyframeSequences in `rig.AnimSaves`.
+2. Open the Animation Editor on the rig, animate `Right Arm`, `Left Arm`, `Handle` and
+   `Magazine` (and `Torso` if you want), and save each animation named exactly by its slot
+   (`Relaxed`, `Idle`, `Aim`, `Fire`, `Reload`). The editor stores them as KeyframeSequences in
+   `rig.AnimSaves`.
 3. `Dev.CollectAnimSaves()` copies them into `Assets/Animations/<Class>/<Slot>` with the right
    priority and loop flag (`Dev.CollectAnimSaves(rig, true)` stores per weapon instead).
 4. Play in Studio: the loader registers the KeyframeSequences on the fly.
@@ -385,7 +386,7 @@ Dev.SpawnDummy(3)                -- three R6 dummies in front of the first playe
 Dev.Give("DebugRifle")           -- give and equip to the first player (Play, server)
 Dev.ImportWeapon(model, "Name", { Scale = 0.03 })  -- free model (Model or Tool) into Assets/Weapons
 Dev.ImportWeapons(workspace.Guns, { Scale = 1 })   -- every Tool/Model in a container, names stripped to [A-Za-z0-9]
-Dev.BuildAnimationRig("AutoRifle")  -- R6 dummy with the weapon attached, for the Animation Editor
+Dev.BuildAnimationRig("FAL")       -- R6 dummy with the weapon attached, for the Animation Editor
 Dev.CollectAnimSaves()           -- move saved KeyframeSequences into Assets/Animations
 Dev.ReportMissingAnimationIds()  -- KeyframeSequences without ids and ids without sequences
 Dev.Doctor()                     -- validate configs against assets

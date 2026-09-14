@@ -13,9 +13,18 @@ Anotacoes de pedidos fora da fase atual sobre animacao e o que ela controla. A F
 
 ## Decidido para a Fase 4 (14/09)
 
-- Slot `Relaxed` (prioridade Idle, loop) entra no Manifest (alpha.20): arma baixa depois de N
-  segundos sem tiro nem mira, qualquer input volta para `Idle`, e o tiro nunca espera a
-  transicao (a bala sai, a animacao de levantar toca por cima).
+- **Maquina de estados da arma** (Gabriel, 14/09). Sem animacao de `Equip`: selecionar a Tool
+  leva direto a `Relaxed` (arma na mao, baixa, desarmada). Tecla F (`Keys.Ready`, no lugar de
+  `Inspect`) alterna `Relaxed` <-> `Idle`; em `Idle` pode atirar, segurar o botao direito vai
+  para `Aim`, soltar volta. `Reload` funciona em `Relaxed` e em `Idle` e devolve ao mesmo
+  estado. Em `Relaxed`: sem `Aim`, sem `Fire` (o servidor recusa; o client nem manda). Sem
+  `Sprint` (so muda velocidade; pernas ficam com o `Animate`), sem `Inspect`, sem `Unequip`.
+  No servidor: `EquipState` ganha `Relaxed`; `Ready` passa a exigir o F; `Combat` so aceita
+  `Fire`/`Aim` em `Ready`; `EquipTime` continua como guarda contra troca-e-tira, sem animacao.
+  Remote novo `Relax(boolean)` no padrao do `Aim`. Suposicoes a confirmar: F e toggle; nao ha
+  volta automatica para `Relaxed` por tempo.
+- Slots com clip: `Relaxed`, `Idle`, `Aim`, `Fire`, `Reload` (+ `ReloadEmpty` opcional).
+  Prioridades: `Relaxed`/`Idle` Idle, `Aim` Movement, `Fire` Action2, `Reload` Action.
 - `Aim` e por classe: em 1a pessoa o `ViewmodelController` alinha o `Sight` ao centro por cima
   de qualquer clip, entao a diferenca de mira entre armas e o attachment, nao a animacao.
 - `Reload` por arma so quando o mecanismo difere (`Assets/Animations/Weapons/<Nome>/Reload`);

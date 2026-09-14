@@ -7,7 +7,7 @@ return {
         "Sounds",
     },
     AnimationClasses = { "Pistol", "SMG", "Rifle", "Shotgun", "Sniper" },
-    AnimationSlots = { "Idle", "Fire", "Reload", "Equip", "Aim", "Relaxed", "ReloadEmpty", "Sprint", "Inspect", "Unequip" },
+    AnimationSlots = { "Relaxed", "Idle", "Aim", "Fire", "Reload", "ReloadEmpty", "Equip", "Sprint", "Inspect", "Unequip" },
     SlotPriority = {
         Idle = Enum.AnimationPriority.Idle,
         Relaxed = Enum.AnimationPriority.Idle,
