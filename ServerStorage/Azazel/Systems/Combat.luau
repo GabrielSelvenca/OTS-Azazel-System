@@ -14,6 +14,7 @@ local Signal = require(package.Packages.Signal)
 
 local CharacterRig = require(script.Parent.CharacterRig)
 local Inventory = require(script.Parent.Inventory)
+local Ragdoll = require(script.Parent.Ragdoll)
 
 local Combat = {}
 
@@ -102,11 +103,17 @@ local function damageVictim(player: Player, cfg, hitPart: BasePart, origin: Vect
 
     local healthBefore = humanoid.Health
     tagAttacker(humanoid, player, cfg.Name)
+    local lethal = healthBefore <= damage
+    local breakJoints = if lethal then Ragdoll.Prepare(humanoid) else nil
     humanoid:TakeDamage(damage)
     local killed = healthBefore > 0 and humanoid.Health <= 0
+    if breakJoints ~= nil and not killed then
+        Ragdoll.Restore(humanoid, breakJoints)
+    end
 
     Combat.Hit:Fire(player, humanoid, damage, zone, cfg)
     if killed then
+        Ragdoll.Kill(victimModel, hitPart, (hitPosition - origin).Unit)
         Combat.Kill:Fire(player, victimPlayer, humanoid, cfg)
     end
     Remotes.FireClient("HitConfirmed", player, zone, damage, killed)

@@ -326,5 +326,11 @@ clone do rig na camera, arma por Motor6D, sway/bob/recoil, ADS pelo `Sight` (fal
 (sem animacoes para fazer no dia). Zoom pela roda em 3a pessoa (`MinDistance`/`MaxDistance`/
 `ZoomStep`). O que o Gabriel faz a mao: attachment `Sight` nas armas.
 
+**Ragdoll (v0.2.0-alpha.10)**, pedido do Gabriel fora do plano e feito direto: so morte por
+arma Azazel; servidor desliga `BreakJointsOnDeath`, congela o boneco real e avisa todos os
+clients pelo remote `Ragdoll`; cada client esconde o boneco e monta a propria copia
+(`Shared/Ragdoll`, BallSocket por Motor6D, limites em `Settings.Ragdoll.Joints`), fisica
+local, cap `RagdollMaxLive` por qualidade. Em teste no Play.
+
 **Proxima**: resto da Fase 3 (scope, muzzle flash, impactos, cartuchos, Shake, sons), depois o
 codigo da Fase 4 (Animations, slots) e a Fase 6.

@@ -3,7 +3,7 @@ local Version = {
     Minor = 2,
     Patch = 0,
     Channel = "alpha",
-    Build = 9,
+    Build = 10,
 }
 
 local RELEASE_CHANNEL = "release"

@@ -48,7 +48,7 @@ It is not a player guide.
    require(game.ReplicatedStorage.Azazel.Dev.Commands).Setup()
    ```
 3. Press Play. The Output prints `[Azazel] <version> 3/3 systems started` on the server and
-   `[Azazel] client <version> 6/6 controllers started` on the client. You spawn with the default
+   `[Azazel] client <version> 7/7 controllers started` on the client. You spawn with the default
    loadout (five Weapons Kit weapons, drawn as placeholder cubes until you import the models,
    plus a light helmet and vest).
 
@@ -65,14 +65,14 @@ ReplicatedStorage/Azazel/
     WeaponConfig.luau  Defaults <- Classes[class] <- Weapons/<Name>
     Weapons/<Name>.luau  One module per weapon
     AnimationIds.luau  Published animation ids per class and slot (see Animations)
-  Shared/              Remotes, Accuracy, Rig, WeaponModel, UIKit
+  Shared/              Remotes, Accuracy, Damage, Rig, WeaponModel, Spring, Ragdoll, UIKit
   Packages/            Vendored libraries (Trove, Signal, Spr, T, Shake, PartCache, Observers)
   Assets/              Weapons/, Animations/, Effects/, Sounds/ (hand placed in Studio)
   Client/              Client bus (init.luau) and Controllers/
   Dev/Commands.luau    Studio only helpers
 ServerStorage/Azazel/
   init.luau            Server API
-  Systems/             CharacterRig, Inventory, Combat
+  Systems/             CharacterRig, Inventory, Combat, Ragdoll
 ```
 
 ## Server API
@@ -254,6 +254,19 @@ The real character is hidden with `LocalTransparencyModifier`. Third person has 
 
 `ViewmodelController.GetAnimator()` returns the viewmodel's Animator for the animation set.
 
+## Ragdoll
+
+Only a death by an Azazel weapon ragdolls; any other death keeps the Roblox default. When a
+hit is lethal the server sets `BreakJointsOnDeath = false` on the victim, applies the damage,
+then anchors the real character with collisions off and fires the `Ragdoll` remote to every
+client with the character, the part that took the hit and the shot direction. Each client
+hides the real character locally and builds its own copy with `Shared/Ragdoll.Build`: the
+root is dropped, every limb Motor6D becomes a `BallSocketConstraint` with the limits from
+`Settings.Ragdoll.Joints`, the copy inherits the character's velocity and gets
+`Settings.Ragdoll.Impulse` along the shot on the hit part. The copy lives under the effects
+folder, is simulated only on that client, fades for `FadeTime` and is removed after
+`Lifetime`; `RagdollMaxLive` per quality level drops the oldest one first.
+
 ## Quality levels
 
 Effects scale with the player. `ReplicatedStorage/Azazel/Client/Quality` reads the graphics
@@ -342,7 +355,7 @@ The module returns an empty table outside Studio.
 | 2 | Real weapon models, hotbar, equip flow, helmet and vest, animation rig commands (this version) |
 | 3 | Feel: recoil, aim down sights, shoulder swap, camera collision, scope, effects, sounds |
 | 4 | Animation playback (Studio auto-register, id manifest) |
-| 5 | First person viewmodel cloned from the rig (this version) |
+| 5 | First person viewmodel cloned from the rig, client side ragdoll (this version) |
 | 6 | Hardening, R15 tables, first alpha tag |
 
 ## License

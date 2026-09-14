@@ -23,6 +23,7 @@ local DEFINITIONS = {
     State = { Kind = "RemoteEvent", Direction = "ServerToClient" },
     ShotFired = { Kind = "UnreliableRemoteEvent", Direction = "ServerToClient" },
     HitConfirmed = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+    Ragdoll = { Kind = "RemoteEvent", Direction = "ServerToClient" },
 }
 
 local folder: Folder? = nil

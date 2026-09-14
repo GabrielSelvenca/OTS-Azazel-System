@@ -2,6 +2,17 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.10
+
+- Ragdoll on death by an Azazel weapon, and only then. The server (`Systems/Ragdoll`) turns
+  `BreakJointsOnDeath` off right before a lethal hit, anchors the dead character with
+  collisions off and fires the new `Ragdoll` remote (character, hit part, shot direction) to
+  every client. `Client/Controllers/RagdollController` hides the real character locally and
+  builds its own copy with `Shared/Ragdoll.Build`: root dropped, limb Motor6Ds swapped for
+  `BallSocketConstraint`s with `Settings.Ragdoll.Joints` limits, inherited velocity plus
+  `Settings.Ragdoll.Impulse` on the hit part. Physics runs on each client, nothing replicates.
+  `Lifetime`/`FadeTime` in `Settings.Ragdoll`, `RagdollMaxLive` per quality level.
+
 ## 0.2.0-alpha.9
 
 - Viewmodel (Phase 5): `Client/Controllers/ViewmodelController` clones the player's rig into

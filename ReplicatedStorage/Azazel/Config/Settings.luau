@@ -132,9 +132,9 @@ Settings.Quality = {
     AutoFps = { Medium = 30, High = 50, Hysteresis = 6 },
     SampleSeconds = 4,
     Levels = {
-        Low = { TracerEvery = 3, TracerTrail = false, TracerLightDistance = 0, TracerMaxLive = 16, Casings = false, Impacts = false, MuzzleFlash = true, Shake = false },
-        Medium = { TracerEvery = 1, TracerTrail = true, TracerLightDistance = 150, TracerMaxLive = 32, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
-        High = { TracerEvery = 1, TracerTrail = true, TracerLightDistance = 300, TracerMaxLive = 64, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
+        Low = { TracerEvery = 3, TracerTrail = false, TracerLightDistance = 0, TracerMaxLive = 16, RagdollMaxLive = 4, Casings = false, Impacts = false, MuzzleFlash = true, Shake = false },
+        Medium = { TracerEvery = 1, TracerTrail = true, TracerLightDistance = 150, TracerMaxLive = 32, RagdollMaxLive = 8, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
+        High = { TracerEvery = 1, TracerTrail = true, TracerLightDistance = 300, TracerMaxLive = 64, RagdollMaxLive = 16, Casings = true, Impacts = true, MuzzleFlash = true, Shake = true },
     },
 }
 
@@ -175,6 +175,27 @@ Settings.Effects = {
             Range = 8,
             Shadows = false,
         },
+    },
+}
+
+-- Ragdoll on death by an Azazel weapon; any other death keeps the Roblox default. The server
+-- stops the joints from breaking, freezes the real character out of the way (anchored, no
+-- collision, hidden by every client) and tells all clients where the killing shot came from.
+-- Each client then builds its own local copy (Shared/Ragdoll) with BallSocketConstraints and
+-- simulates it, so nothing is replicated; RagdollMaxLive per quality level caps how many
+-- exist at once. Joint limits are in degrees, keyed by the Motor6D name with a Default.
+Settings.Ragdoll = {
+    Enabled = true,
+    Lifetime = 8,               -- seconds the ragdoll stays before it is removed
+    FadeTime = 1,               -- fade out during the last seconds of Lifetime
+    Impulse = 30,               -- velocity (studs/s) added along the shot to the part that took the killing hit
+    Joints = {
+        Default = { UpperAngle = 45, Twist = 30 },
+        Neck = { UpperAngle = 30, Twist = 40 },
+        ["Left Shoulder"] = { UpperAngle = 90, Twist = 45 },
+        ["Right Shoulder"] = { UpperAngle = 90, Twist = 45 },
+        ["Left Hip"] = { UpperAngle = 60, Twist = 20 },
+        ["Right Hip"] = { UpperAngle = 60, Twist = 20 },
     },
 }
 
