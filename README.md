@@ -148,12 +148,20 @@ Azazel.EquipmentChanged:Connect(function(player, zone, cfg) end)   -- cfg nil wh
    ```lua
    require(game.ReplicatedStorage.Azazel.Dev.Commands).ImportWeapon(game.Selection:Get()[1], "AK47")
    ```
-   The first argument may be a Model or a Tool (the Roblox Weapons Kit ships Tools); with no
-   argument the current Studio selection is used.
-   This strips every script, welds all parts to a `Handle`, disables collisions and queries,
-   adds a `Muzzle` attachment if missing and places the copy in `Assets/Weapons/AK47`. Free
-   models are never trusted: the scripts are deleted on import and again every time the model is
-   cloned.
+   The first argument may be a Model or a Tool (the Roblox Weapons Kit and Viethin packs ship
+   Tools); with no argument the current Studio selection is used. A third argument tunes the
+   import: `{ Scale = 0.03, Material = "SmoothPlastic" }` (`Scale` is `Model:ScaleTo`, use the
+   same factor for a whole pack so the guns stay proportional; `Material` is for flat colored
+   meshes).
+   The import strips every script and every Value, marker parts named `Muzzle`, `Casing`
+   (`Casingg`) and `Handle1` become the `Muzzle`, `Eject` and `LeftHand` attachments on the
+   `Handle` (their particle emitters move along, disabled), parts named `Magazine`, `Bolt`,
+   `Bolt2`, `Slide`, `Pump`, `Lever` or `Cylinder` get a `Motor6D` from the `Handle` so the
+   Animation Editor can move them (a part named `<Name>Attachment` marks the pivot, as in the
+   Viethin rig), every `Sound` moves to `Assets/Sounds/AK47/`, the rest is welded to the
+   `Handle` with collisions and queries off, and the copy lands in `Assets/Weapons/AK47`. The
+   name lists live in `Assets/Manifest.luau` under `Import`. Free models are never trusted: the
+   scripts are deleted on import and again every time the model is cloned.
 2. Create `Config/Weapons/AK47.luau`:
    ```lua
    return {
@@ -172,6 +180,10 @@ Azazel.EquipmentChanged:Connect(function(player, zone, cfg) end)   -- cfg nil wh
 
 Weapon models need a `Handle` BasePart with the barrel pointing along its negative Z axis, a
 `Muzzle` attachment and, optionally, `Sight` (aim point for first person aiming) and `Eject`.
+A part that should move in animations (magazine, bolt) must be its own BasePart joined to the
+`Handle` by a `Motor6D`; the import creates that joint from the names above. Meshes from the
+Quaternius or Kenney packs come as one object: split the magazine off in Blender (Edit Mode,
+hover it, `L`, `P` > Selection), name the objects `Handle` and `Magazine`, export FBX.
 
 Free model sources that work well: the Roblox Weapons Kit models (Creator Store, endorsed),
 Quaternius and Kenney packs (CC0, import through Studio's 3D importer).
@@ -337,7 +349,7 @@ Dev.Setup()                      -- create Assets folders
 Dev.Weapons()                    -- list configured weapons
 Dev.SpawnDummy(3)                -- three R6 dummies in front of the first player (Play, server)
 Dev.Give("DebugRifle")           -- give and equip to the first player (Play, server)
-Dev.ImportWeapon(model, "Name")  -- sanitize a free model (Model or Tool) into Assets/Weapons
+Dev.ImportWeapon(model, "Name", { Scale = 0.03 })  -- free model (Model or Tool) into Assets/Weapons
 Dev.BuildAnimationRig("AutoRifle")  -- R6 dummy with the weapon attached, for the Animation Editor
 Dev.CollectAnimSaves()           -- move saved KeyframeSequences into Assets/Animations
 Dev.ReportMissingAnimationIds()  -- KeyframeSequences without ids and ids without sequences

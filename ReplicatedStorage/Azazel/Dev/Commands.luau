@@ -17,6 +17,7 @@ local EquipmentConfig = require(package.Config.EquipmentConfig)
 local AnimationIds = require(package.Config.AnimationIds)
 local Rig = require(package.Shared.Rig)
 local WeaponModel = require(package.Shared.WeaponModel)
+local WeaponImport = require(script.Parent.WeaponImport)
 
 local Commands = {}
 
@@ -171,14 +172,14 @@ local function toModel(source: Instance): Model
     return model
 end
 
-function Commands.ImportWeapon(source: Instance?, name: string?)
+function Commands.ImportWeapon(source: Instance?, name: string?, options: WeaponImport.Options?)
     local instance = source or Selection:Get()[1]
     assert(typeof(instance) == "Instance", "[Azazel] Select a Model or Tool, or pass one as the first argument")
     local weaponName = name or instance.Name
     Commands.Setup()
     local copy = toModel(instance)
     copy.Name = weaponName
-    local handle = WeaponModel.Sanitize(copy)
+    local handle, report = WeaponImport.Prepare(copy, weaponName, options)
     assert(handle, "[Azazel] Model has no BasePart to use as Handle")
     local folder = package.Assets.Weapons
     local existing = folder:FindFirstChild(weaponName)
@@ -186,7 +187,8 @@ function Commands.ImportWeapon(source: Instance?, name: string?)
         existing:Destroy()
     end
     copy.Parent = folder
-    print(`[Azazel] Imported {weaponName} into Assets/Weapons. Config stub for Config/Weapons/{weaponName}.luau:`)
+    print(`[Azazel] Imported {weaponName} into Assets/Weapons: attachments [{table.concat(report.Attachments, ", ")}], motors [{table.concat(report.Motors, ", ")}], {#report.Sounds} sound(s) moved to Assets/Sounds/{weaponName}, {report.Discarded} instance(s) discarded`)
+    print(`[Azazel] Config stub for Config/Weapons/{weaponName}.luau:`)
     print(table.concat({ "return {", `    Name = "{weaponName}",`, `    DisplayName = "{weaponName}",`, `    Class = "Rifle",`, `    Model = "{weaponName}",`, "}" }, string.char(10)))
     return copy
 end

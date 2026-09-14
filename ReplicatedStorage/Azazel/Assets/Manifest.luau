@@ -20,4 +20,9 @@ return {
         Unequip = Enum.AnimationPriority.Action3,
     },
     SlotLoop = { Idle = true, Aim = true, Sprint = true },
+    Import = {
+        MovingParts = { "Magazine", "Bolt", "Bolt2", "Slide", "Pump", "Lever", "Cylinder" },
+        AttachmentParts = { Muzzle = "Muzzle", Casingg = "Eject", Casing = "Eject", Eject = "Eject", Handle1 = "LeftHand" },
+        Discard = { "PanMuzzle", "BayonetHitBox", "BayonetBlade", "StockClips" },
+    },
 }

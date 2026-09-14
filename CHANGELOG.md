@@ -2,6 +2,15 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.13
+
+- Dev: `ImportWeapon` grew into `Dev/WeaponImport`. Optional `{ Scale, Material }`, marker
+  parts (`Muzzle`, `Casingg`/`Casing`, `Handle1`) become attachments on the `Handle` with their
+  emitters, moving parts (`Magazine`, `Bolt`, `Bolt2`, `Slide`, `Pump`, `Lever`, `Cylinder`) get
+  a `Motor6D` from the `Handle` pivoted on `<Name>Attachment` when present (Viethin rig), every
+  `Sound` moves to `Assets/Sounds/<Weapon>/`, Values, scripts, hitboxes and helper parts are
+  destroyed. Name lists in `Assets/Manifest.Import`. Viethin 1.8 Tools import in one call.
+
 ## 0.2.0-alpha.12
 
 - Viewmodel: rest pose. While no animation plays, the viewmodel's shoulders hold `Pose` from

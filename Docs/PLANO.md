@@ -319,6 +319,11 @@ do Weapons Kit no loadout padrao, hotbar e barras de armadura no HUD, comandos
 `BuildAnimationRig`/`CollectAnimSaves`/`Doctor`/`Grip*`. O que o Gabriel faz a mao: inserir os
 5 modelos do Weapons Kit e rodar `ImportWeapon` em cada um, afinar o Grip com `GripMove`/`GripRotate`
 + `PrintGrip` e colar no config, e comecar a animar com `BuildAnimationRig`.
+Import reforcado (alpha.13): `Dev/WeaponImport` converte marcadores em attachments, da Motor6D
+a `Magazine`/`Bolt`/... (pivo no `<Nome>Attachment`, convencao Viethin), move sons para
+`Assets/Sounds/<Arma>/` e descarta o resto; `{ Scale, Material }` opcionais. Fontes de modelo
+escolhidas: Viethin 1.8 (Extension Packs publicos, so para o jogo) e Quaternius (CC0, pode ir
+dentro do pacote; pente separado no Blender com `L` + `P`, cores por vertex color bake).
 
 **Fase 5 — escrita (v0.2.0-alpha.9), em teste no Play.** `ViewmodelController` + `Shared/Spring`:
 clone do rig na camera, arma por Motor6D, sway/bob/recoil, ADS pelo `Sight` (fallback
