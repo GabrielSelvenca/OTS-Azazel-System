@@ -187,10 +187,27 @@ function Commands.ImportWeapon(source: Instance?, name: string?, options: Weapon
         existing:Destroy()
     end
     copy.Parent = folder
-    print(`[Azazel] Imported {weaponName} into Assets/Weapons: attachments [{table.concat(report.Attachments, ", ")}], motors [{table.concat(report.Motors, ", ")}], {#report.Sounds} sound(s) moved to Assets/Sounds/{weaponName}, {report.Discarded} instance(s) discarded`)
+    print(`[Azazel] Imported {weaponName} into Assets/Weapons: attachments [{table.concat(report.Attachments, ", ")}], motors [{table.concat(report.Motors, ", ")}], sounds [{table.concat(report.Sounds, ", ")}], {report.Discarded} instance(s) discarded`)
     print(`[Azazel] Config stub for Config/Weapons/{weaponName}.luau:`)
-    print(table.concat({ "return {", `    Name = "{weaponName}",`, `    DisplayName = "{weaponName}",`, `    Class = "Rifle",`, `    Model = "{weaponName}",`, "}" }, string.char(10)))
+    print(table.concat({ "return {", `    Name = "{weaponName}",`, `    DisplayName = "{instance.Name}",`, `    Class = "Rifle",`, `    Model = "{weaponName}",`, "}" }, string.char(10)))
     return copy
+end
+
+local function moduleName(name: string): string
+    return (string.gsub(name, "[^%w]", ""))
+end
+
+function Commands.ImportWeapons(container: Instance?, options: WeaponImport.Options?)
+    local parent = container or workspace
+    local imported = {}
+    for _, child in parent:GetChildren() do
+        if child:IsA("Tool") or (child:IsA("Model") and child:FindFirstChild(WeaponModel.HandleName, true)) then
+            Commands.ImportWeapon(child, moduleName(child.Name), options)
+            table.insert(imported, moduleName(child.Name))
+        end
+    end
+    print(`[Azazel] Imported {#imported} weapon(s) from {parent:GetFullName()}: {table.concat(imported, ", ")}`)
+    return imported
 end
 
 local function findMotor(character: Model): Motor6D

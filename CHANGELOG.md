@@ -2,6 +2,15 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.15
+
+- Dev: `ImportWeapons(container, options)` imports every Tool or Model in a container; module
+  names drop anything outside `[A-Za-z0-9]` (`Glock 18A` -> `Glock18A`), the original name is
+  the `DisplayName` in the printed stub.
+- Dev: sound convention on import. A `Sound` named `Fire*` is the weapon's own and becomes
+  `Assets/Sounds/<Weapon>/Fire`; every other name is shared and goes flat into
+  `Assets/Sounds/<Name>`, the first imported copy wins.
+
 ## 0.2.0-alpha.14
 
 - Dev: the import keeps only what the system reads. `Muzzle` attachment and `Magazine` Motor6D

@@ -156,9 +156,10 @@ Azazel.EquipmentChanged:Connect(function(player, zone, cfg) end)   -- cfg nil wh
    The import keeps only what Azazel reads: a part named `Muzzle` becomes the `Muzzle`
    attachment on the `Handle`, a part named `Magazine` gets a `Motor6D` from the `Handle` so
    the Animation Editor can move it (a part named `MagazineAttachment` marks the pivot, as in
-   the Viethin rig), every `Sound` moves to `Assets/Sounds/AK47/` for the game to reuse, and
-   everything else that is not geometry (scripts, Values, emitters, hitboxes, helper parts) is
-   destroyed. The rest is welded to the `Handle` with collisions and queries off, and the copy
+   the Viethin rig), sounds leave the model (a `Sound` named `Fire*` is the weapon's own and
+   becomes `Assets/Sounds/AK47/Fire`; any other name is shared by every weapon and lands in
+   `Assets/Sounds/<Name>`, first import wins), and everything else that is not geometry
+   (scripts, Values, emitters, hitboxes, helper parts) is destroyed. The rest is welded to the `Handle` with collisions and queries off, and the copy
    lands in `Assets/Weapons/AK47`. The name lists live in `Assets/Manifest.luau` under
    `Import`; add `Bolt` or `Eject` there the day an animation or effect needs them. Free models
    are never trusted: the scripts are deleted on import and again every time the model is
@@ -351,6 +352,7 @@ Dev.Weapons()                    -- list configured weapons
 Dev.SpawnDummy(3)                -- three R6 dummies in front of the first player (Play, server)
 Dev.Give("DebugRifle")           -- give and equip to the first player (Play, server)
 Dev.ImportWeapon(model, "Name", { Scale = 0.03 })  -- free model (Model or Tool) into Assets/Weapons
+Dev.ImportWeapons(workspace.Guns, { Scale = 1 })   -- every Tool/Model in a container, names stripped to [A-Za-z0-9]
 Dev.BuildAnimationRig("AutoRifle")  -- R6 dummy with the weapon attached, for the Animation Editor
 Dev.CollectAnimSaves()           -- move saved KeyframeSequences into Assets/Animations
 Dev.ReportMissingAnimationIds()  -- KeyframeSequences without ids and ids without sequences
