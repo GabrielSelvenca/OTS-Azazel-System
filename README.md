@@ -157,8 +157,10 @@ Azazel.EquipmentChanged:Connect(function(player, zone, cfg) end)   -- cfg nil wh
    attachment on the `Handle`, a part named `Magazine` gets a `Motor6D` from the `Handle` so
    the Animation Editor can move it (a part named `MagazineAttachment` marks the pivot, as in
    the Viethin rig), sounds leave the model (a `Sound` named `Fire*` is the weapon's own and
-   becomes `Assets/Sounds/AK47/Fire`; any other name is shared by every weapon and lands in
-   `Assets/Sounds/<Name>`, first import wins), and everything else that is not geometry
+   becomes `Assets/Sounds/AK47/Fire`, several of them become the layers inside a `Fire` folder
+   there; any other name is shared by every weapon and lands in `Assets/Sounds/<Name>`, first
+   import wins; `Manifest.Import.SoundRenames` fixes names first), and everything else that is
+   not geometry
    (scripts, Values, emitters, hitboxes, helper parts) is destroyed. The rest is welded to the `Handle` with collisions and queries off, and the copy
    lands in `Assets/Weapons/AK47`. The name lists live in `Assets/Manifest.luau` under
    `Import`; add `Bolt` or `Eject` there the day an animation or effect needs them. Free models

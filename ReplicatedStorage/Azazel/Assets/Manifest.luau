@@ -24,5 +24,6 @@ return {
         MovingParts = { "Magazine" },
         AttachmentParts = { Muzzle = "Muzzle" },
         Discard = { "Handle1", "PanMuzzle", "BayonetHitBox", "BayonetBlade", "StockClips", "ScopeRet", "Retikle" },
+        SoundRenames = { FireSelect = "Selector" },
     },
 }

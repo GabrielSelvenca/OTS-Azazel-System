@@ -2,6 +2,12 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.17
+
+- Dev: several `Fire*` sounds on one weapon become the layers of an `Assets/Sounds/<Weapon>/Fire`
+  folder instead of loose files; `FireSelect` is renamed `Selector` and shared
+  (`Manifest.Import.SoundRenames`). Reimporting a weapon clears its sound folder first.
+
 ## 0.2.0-alpha.16
 
 - Dev: `Handle1`, `ScopeRet` and `Retikle` (Viethin left hand and scope reticle markers) join

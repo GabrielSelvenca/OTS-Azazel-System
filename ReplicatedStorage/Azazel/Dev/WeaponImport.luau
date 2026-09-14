@@ -7,9 +7,10 @@
     - Moving parts (Magazine) get a Motor6D from the Handle instead of a weld, so the Animation
       Editor sees them as joints. A part named <Name>Attachment is used as the pivot (the
       Viethin rig convention); <Name>Rotation helpers are dropped.
-    - Sounds leave the model: a Sound named Fire* is the weapon's own and goes to
-      Assets/Sounds/<Weapon>/Fire; any other name is shared by every weapon and goes to
-      Assets/Sounds/<Name>, the first imported copy wins.
+    - Sounds leave the model. A Sound named Fire* is the weapon's own: one becomes
+      Assets/Sounds/<Weapon>/Fire, several become the layers inside a Fire folder there. Any
+      other name is shared by every weapon and goes to Assets/Sounds/<Name>, the first imported
+      copy wins. Import.SoundRenames fixes names before that split (FireSelect -> Selector).
     - Everything else that is not geometry or a joint is destroyed. The weapon keeps only what
       Azazel reads; the name lists above are the whole contract.
 ]]
@@ -60,19 +61,24 @@ end
 local FIRE_PREFIX = "fire"
 local FIRE_NAME = "Fire"
 
+local function newFolder(name: string, parent: Instance): Folder
+    local folder = Instance.new("Folder")
+    folder.Name = name
+    folder.Parent = parent
+    return folder
+end
+
 local function soundsFolder(weaponName: string?): Folder
     local sounds = package.Assets:FindFirstChild("Sounds")
     assert(sounds, "[Azazel] Assets/Sounds missing; run Setup()")
     if not weaponName then
         return sounds
     end
-    local folder = sounds:FindFirstChild(weaponName)
-    if not folder then
-        folder = Instance.new("Folder")
-        folder.Name = weaponName
-        folder.Parent = sounds
+    local existing = sounds:FindFirstChild(weaponName)
+    if existing then
+        existing:Destroy()
     end
-    return folder
+    return newFolder(weaponName, sounds)
 end
 
 local function isFireSound(sound: Sound): boolean
@@ -83,21 +89,19 @@ local function harvestSounds(model: Model, weaponName: string, report: Report)
     local fire, shared = {}, {}
     for _, descendant in model:GetDescendants() do
         if descendant:IsA("Sound") then
+            descendant.Name = Import.SoundRenames[descendant.Name] or descendant.Name
             table.insert(if isFireSound(descendant) then fire else shared, descendant)
         end
     end
-    if #fire > 0 then
-        local folder = soundsFolder(weaponName)
+    if #fire == 1 then
+        fire[1].Name = FIRE_NAME
+        fire[1].Parent = soundsFolder(weaponName)
+        table.insert(report.Sounds, `{weaponName}/{FIRE_NAME}`)
+    elseif #fire > 1 then
+        local layers = newFolder(FIRE_NAME, soundsFolder(weaponName))
         for _, sound in fire do
-            if #fire == 1 then
-                sound.Name = FIRE_NAME
-            end
-            local existing = folder:FindFirstChild(sound.Name)
-            if existing then
-                existing:Destroy()
-            end
-            sound.Parent = folder
-            table.insert(report.Sounds, `{weaponName}/{sound.Name}`)
+            sound.Parent = layers
+            table.insert(report.Sounds, `{weaponName}/{FIRE_NAME}/{sound.Name}`)
         end
     end
     if #shared > 0 then
