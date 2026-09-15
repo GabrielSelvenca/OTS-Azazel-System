@@ -113,7 +113,7 @@ every effect reads `Settings.Quality.Levels[level]`.
 them for the real roll, the client only to size the crosshair. `Rig` abstracts the avatar
 (R6 tables live; R15 is a stub with `Enabled = false`) and maps parts to damage zones.
 `WeaponModel.Attach` is the single place a weapon is welded to a hand (Motor6D named `Handle`,
-`Part0 = Right Arm`, `C0 = Rig.HandOffset`, `C1 = cfg.Grip`); the server character, the first
+`Part0 = Right Arm`, `C0 = Rig.HandOffset`, `C1 = cfg.Grip`, same meaning as `Tool.Grip`); the server character, the first
 person viewmodel and the animation rig all use it, so one animation set drives all three.
 Weapons are Models, never Tools with Handles. With `Settings.Server.UseBackpack` (default) the
 Roblox Backpack is the inventory: a marker Tool per weapon (`Systems/Backpack`) takes a slot

@@ -8,7 +8,8 @@
     and BurstInterval are derived from Rpm.
 
     Fields (Defaults below shows every one with its default value):
-      Grip            CFrame of the Handle relative to the hand; tune with Dev.Commands.PrintGrip
+      Grip            C1 of the Motor6D that holds the Handle (the hand seen from the Handle, same
+                      meaning as Tool.Grip); copy it from a rig's Motor6D or tune with Dev.PrintGrip
       Pose            rest pose of the arms while no animation plays (first person): per arm,
                       degrees in torso space; Pitch raises the arm forward, Yaw swings it toward
                       the center (positive for the right arm, negative for the left), Roll twists
@@ -35,7 +36,7 @@ local Settings = require(script.Parent.Settings)
 local WeaponConfig = {}
 
 local TracerDefaults = Settings.Effects.Tracer
-local DEFAULT_GRIP = CFrame.Angles(-math.pi / 2, 0, 0)
+local DEFAULT_GRIP = CFrame.Angles(math.pi / 2, 0, 0)
 
 WeaponConfig.ClassOrder = { "Pistol", "SMG", "Rifle", "Shotgun", "Sniper" }
 WeaponConfig.FireModes = { "Auto", "Semi", "Burst" }

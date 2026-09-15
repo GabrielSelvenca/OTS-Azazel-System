@@ -189,13 +189,15 @@ Azazel.EquipmentChanged:Connect(function(player, zone, cfg) end)   -- cfg nil wh
        DisplayName = "AK-47",
        Class = "Rifle",
        Model = "AK47",
-       Grip = CFrame.new(0, 0.1, -0.3) * CFrame.Angles(math.rad(-90), 0, 0),
+       Grip = CFrame.new(0, -0.1, 0.3) * CFrame.Angles(math.rad(90), 0, 0),
        Rpm = 600,
        Damage = { Base = 36 },
    }
    ```
    Every key not present falls back to the class, then to `WeaponConfig.Defaults`. The full key
-   list is in `WeaponConfig.luau`. `Grip` is the Handle offset relative to the hand.
+   list is in `WeaponConfig.luau`. `Grip` is the `C1` of the Motor6D that holds the `Handle`
+   (`C0` is always `Rig.HandOffset`, `(0, -1, 0)` on R6), the same meaning as `Tool.Grip`: build
+   the joint on a rig, read `C1` in the Properties panel and paste it. Default `Angles(90, 0, 0)`.
 3. Give it to a player (`Azazel.GiveWeapon`) or add it to `Settings.Server.DefaultLoadout`.
 
 Weapon models need a `Handle` BasePart with the barrel pointing along its negative Z axis, a
@@ -210,7 +212,8 @@ Quaternius and Kenney packs (CC0, import through Studio's 3D importer).
 
 ## Tuning the grip
 
-With the weapon equipped in Play, use the client command bar:
+Either set `C1` on the `Handle` Motor6D of your animation rig until the weapon sits right and
+copy it into `Grip`, or, with the weapon equipped in Play, use the client command bar:
 
 ```lua
 local Dev = require(game.ReplicatedStorage.Azazel.Dev.Commands)

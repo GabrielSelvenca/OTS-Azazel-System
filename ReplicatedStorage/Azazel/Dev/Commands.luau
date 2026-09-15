@@ -218,22 +218,23 @@ local function findMotor(character: Model): Motor6D
 end
 
 local function currentGrip(character: Model): CFrame
-    return findMotor(character).C1:Inverse()
+    return findMotor(character).C1
 end
 
 local function setGrip(character: Model, grip: CFrame)
-    findMotor(character).C1 = grip:Inverse()
+    findMotor(character).C1 = grip
 end
 
+-- Grip is C1, so moving the weapon by T in its own axes is C1' = T^-1 * C1.
 function Commands.GripMove(x: number, y: number, z: number, character: Model?)
     local target = character or localCharacter()
-    setGrip(target, currentGrip(target) * CFrame.new(x or 0, y or 0, z or 0))
+    setGrip(target, CFrame.new(x or 0, y or 0, z or 0):Inverse() * currentGrip(target))
     Commands.PrintGrip(target)
 end
 
 function Commands.GripRotate(x: number, y: number, z: number, character: Model?)
     local target = character or localCharacter()
-    setGrip(target, currentGrip(target) * CFrame.Angles(math.rad(x or 0), math.rad(y or 0), math.rad(z or 0)))
+    setGrip(target, CFrame.Angles(math.rad(x or 0), math.rad(y or 0), math.rad(z or 0)):Inverse() * currentGrip(target))
     Commands.PrintGrip(target)
 end
 

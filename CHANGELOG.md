@@ -2,6 +2,13 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.22
+
+- Config: `Grip` is now the `C1` of the `Handle` Motor6D itself (the hand seen from the
+  Handle, like `Tool.Grip`) instead of its inverse, so a value read from a hand built rig pastes
+  straight into the config. Default becomes `CFrame.Angles(math.rad(90), 0, 0)`; the weapon
+  sits exactly where it did. `GripMove`/`GripRotate` keep their meaning.
+
 ## 0.2.0-alpha.21
 
 - Animations: the slot set is `Relaxed`, `Idle`, `Aim`, `Fire`, `Reload` (`ReloadEmpty`
