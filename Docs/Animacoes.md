@@ -35,6 +35,13 @@ Anotacoes de pedidos fora da fase atual sobre animacao e o que ela controla. A F
 
 ## Para depois (Fase 4)
 
+- **Rigs feitos a mao pelo Gabriel** (15/09). Ele monta os rigs de animacao e prende as armas
+  sozinho (Easy Weld / juntas manuais), sem `BuildAnimationRig`. Quando entregar, mostrar a
+  arvore de uma arma rigada: `WeaponModel.Attach` passa a reproduzir a junta dele, e
+  `BuildAnimationRig`/`AttachToRig` saem do `Dev/Commands`. `ImportWeapon(s)` e
+  `CollectAnimSaves` ficam ou saem por decisao dele na hora. Lembrete: so Motor6D vira track no
+  editor; braco -> `Handle` e `Handle` -> `Magazine` precisam ser Motor6D, o resto pode ser weld.
+
 - **Cadencia guiada pela animacao** (pedido em 2026-09-13). Arma com atraso entre tiros (sniper
   de ferrolho, shotgun de bomba) tem uma animacao no meio; o proximo tiro so libera quando o slot
   `Fire` termina, nao por um timer solto. Reload cancela a animacao de `Fire` e o intervalo, e

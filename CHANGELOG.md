@@ -2,6 +2,11 @@
 
 All notable changes to Azazel. Newest first. One entry per version.
 
+## 0.2.0-alpha.23
+
+- Docs: hand built animation rigs replace `BuildAnimationRig` once Gabriel delivers them;
+  noted in `Docs/Animacoes.md` with what changes in code at that point.
+
 ## 0.2.0-alpha.22
 
 - Config: `Grip` is now the `C1` of the `Handle` Motor6D itself (the hand seen from the
