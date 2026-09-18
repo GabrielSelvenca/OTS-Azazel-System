@@ -23,7 +23,12 @@ It is not a player guide.
   the weapon inside the hand. The player's inventory is the plain Roblox Backpack: a Tool that
   names a weapon takes a slot, and the Roblox hotbar equips it (`Settings.Server.UseBackpack`;
   turn it off to drive slots with the number keys and the server API only).
-- HUD built entirely in code: crosshair that opens with the spray, ammo panel, hitmarker.
+- HUD built entirely in code: crosshair that opens with the spray (hidden while aiming in first
+  person or through a scope), ammo panel (which reads
+  `Reloading...` in place of the count while the weapon reloads), hitmarker. Firing on an empty
+  magazine reloads.
+- An armed character's arms and head follow the camera pitch, in third person and for the
+  other players (`Settings.Look`).
 - Closed remote registry with schema validation and rate limits on every request.
 - Equipment (helmet, vest) that reduces damage by zone. Durability is supported by the config
   but the shipped pieces never break.
@@ -44,15 +49,15 @@ It is not a player guide.
    - `ServerStorage/Azazel` (the whole folder)
    - `ServerScriptService/Azazel.server.luau`
    - `StarterPlayer/StarterPlayerScripts/Azazel.local.luau`
-2. In Studio, run once in the command bar to create the asset folders:
-   ```lua
-   require(game.ReplicatedStorage.Azazel.Dev.Commands).Setup()
-   ```
+2. In Studio, create the asset folders by hand under `ReplicatedStorage/Azazel/Assets`:
+   `Weapons`, `Animations` (with a `Weapons` folder inside), `Effects`, `Sounds`. Models,
+   KeyframeSequences and sounds go there; nothing in the package creates or edits instances.
 3. Press Play. The Output prints `[Azazel] <version> 4/4 systems started` on the server and
-   `[Azazel] client <version> 7/7 controllers started` on the client. You spawn unarmed: put a
-   Tool named after a weapon in `StarterPack` (or give one from your own UI) and it shows up in
-   the Roblox hotbar; `Settings.Server.GiveDefaultLoadoutOnSpawn` hands `DefaultLoadout` to
-   everyone instead.
+   `[Azazel] client <version> 9/9 controllers started` on the client. To get a weapon, put a
+   Tool named after one (`FNFNC`, or any name with the attribute `AzazelWeapon = "FNFNC"`) in
+   `StarterPack`, with `RequiresHandle` off if it has no `Handle`; equip it from the Roblox
+   hotbar and the weapon appears in the hand. See "Backpack" below. For targets, drop R6 dummies
+   from the Rig Builder plugin in the map: any Humanoid takes damage.
 
 If you clone this repository to contribute, also run `git config core.hooksPath .githooks`.
 
@@ -64,14 +69,13 @@ ReplicatedStorage/Azazel/
   Version.luau         Single source of truth for the version
   Config/
     Settings.luau      Camera, keys, HUD, server limits, effects, debug flags, strings
-    WeaponConfig.luau  Defaults <- Classes[class] <- Weapons/<Name>
-    Weapons/<Name>.luau  One module per weapon
+    WeaponConfig.luau  Defaults <- Classes[class] <- Weapons[Name]
+    Weapons.luau       Every weapon, one entry per name
     AnimationIds.luau  Published animation ids per class and slot (see Animations)
-  Shared/              Remotes, Accuracy, Damage, Rig, WeaponModel, Spring, Ragdoll, UIKit
+  Shared/              Remotes, Accuracy, Damage, Rig, WeaponModel, Animations, Spring, Ragdoll, UIKit
   Packages/            Vendored libraries (Trove, Signal, Spr, T, Shake, PartCache, Observers)
   Assets/              Weapons/, Animations/, Effects/, Sounds/ (hand placed in Studio)
-  Client/              Client bus (init.luau) and Controllers/
-  Dev/Commands.luau    Studio only helpers
+  Client/              Client bus (init.luau), Controllers/, ShotDebug (Settings.Debug drawer)
 ServerStorage/Azazel/
   init.luau            Server API
   Systems/             CharacterRig, Inventory, Backpack, Combat, Ragdoll
@@ -87,6 +91,7 @@ Azazel.GiveWeapon(player, "DebugRifle", 2)       -- specific slot (1..Settings.S
 Azazel.RemoveWeapon(player, 2)
 Azazel.SetLoadout(player, { Weapons = { "Pistol", "Rifle" }, Equipment = {} })
 Azazel.Equip(player, 1)                          -- 0 holsters
+Azazel.SetRelaxed(player, true)                  -- lowers the weapon (Relaxed); false arms it (Ready)
 Azazel.GetState(player)                          -- snapshot: Weapon, Slot, Slots, Ammo, Reserve, Magazine, FireMode, EquipState, Equipment
 
 Azazel.WeaponEquipped:Connect(function(player, cfg) end)          -- cfg is nil when holstered
@@ -101,17 +106,25 @@ player whose inventory is empty when their character spawns. Leave it off and ca
 
 ### Backpack
 
-With `Settings.Server.UseBackpack` on (the default) the player's Backpack is the inventory.
-Any Tool whose attribute `AzazelWeapon` (or, failing that, its `Name`) matches a weapon config
-`Name` or `DisplayName` takes the first free slot while it sits in the Backpack or in the
-character, and frees it when it leaves. Put such Tools in `StarterPack`, or create them from
-your shop, pickup or loadout UI; no Handle, no scripts needed, the package sets
-`RequiresHandle = false` and `CanBeDropped = false`. The Roblox hotbar equips and unequips
-(`Tool.Equipped`/`Tool.Unequipped` drive the weapon), the number keys belong to Roblox, and
-`GiveWeapon`, `RemoveWeapon`, `SetLoadout` and `Equip` above create, destroy and equip the
-Tools so the hotbar always agrees with the state. The weapon the player sees is still the
-Model on the Motor6D. Turn `UseBackpack` off to get the previous behavior: slots on the number
-keys, no Tools.
+With `Settings.Server.UseBackpack` on (the default) the weapon in the hand is simply the Tool
+the player equipped, and **the package never touches the Backpack**: it creates no Tool,
+destroys none, edits none, and equips and unequips nothing. It only watches what the character
+holds. A Tool whose attribute `AzazelWeapon` (or, failing that, its `Name`) matches a weapon
+config `Name` or `DisplayName` puts that weapon in the hand while it is held and takes it away
+when it leaves; every other Tool is left alone.
+
+Your Tool, your rules: put it in `StarterPack`, hand it out from your shop or pickup, name it,
+give it an icon, destroy it when you want. Two things it needs, both its own settings, not the
+package's: **`RequiresHandle` off** when it has no `Handle` (Roblox refuses to equip a
+handleless Tool otherwise), and a name or an `AzazelWeapon` attribute that matches a weapon.
+The weapon the player sees is still the Model on the Motor6D, cloned from `Assets/Weapons`, so
+the Tool itself needs nothing inside it.
+
+The slot a weapon takes is bookkeeping (ammo, fire mode, spray): it is claimed the first time
+the Tool reaches the hand and kept while the Tool exists, so putting the weapon away and taking
+it out again keeps the magazine. `GiveWeapon`, `RemoveWeapon`, `SetLoadout` and `Equip` above
+work on those slots and never create a Tool. Turn `UseBackpack` off to get the other mode:
+slots on the number keys, no Tools, `DefaultLoadout` and `AutoEquipSlot` on spawn.
 
 Kill credit is written on the victim `Humanoid` as attributes `AzazelLastAttackerUserId` and
 `AzazelLastWeapon`, plus a classic `creator` ObjectValue that lives for two seconds.
@@ -137,11 +150,14 @@ Client.State      -- last snapshot from the server
 Client.Config     -- WeaponConfig of the equipped weapon
 Client.View       -- "First" | "Third"
 Client.Aiming     -- boolean
+Client.SightOffset -- Vector3: the held weapon's Sight relative to the first person eye; nil without one
+Client.IsArmed()  -- Ready, or a reload started from Ready: the camera lock and the look pitch follow this
 ```
 
 To drive the system from your own UI or input, fire the input signals: `FireInput(bool)`,
-`AimInput(bool)`, `ReloadInput()`, `SlotInput(n)`, `ToggleViewInput()`, `SwapShoulderInput()`,
-`FireModeInput()`. The default keys live in `Settings.Keys`.
+`AimInput(bool)`, `ReloadInput()`, `ReadyInput()`, `SprintInput(bool)`, `SlotInput(n)`,
+`ToggleViewInput()`, `SwapShoulderInput()`, `FireModeInput()`. The default keys live in
+`Settings.Keys`.
 
 ## Equipment
 
@@ -160,68 +176,72 @@ Azazel.EquipmentChanged:Connect(function(player, zone, cfg) end)   -- cfg nil wh
 
 ## Adding a weapon
 
-1. Put the Model in Studio, select it, and run:
+1. Build the weapon on your animation rig, then duplicate the weapon Model (Ctrl+D) and drag
+   the copy into `ReplicatedStorage/Azazel/Assets/Weapons/AK47`. The model ships its own
+   joints, so the clips made on the rig land the same way on the character and on the
+   viewmodel. Everything the weapon needs must be inside that one Model before you duplicate:
+   - a BasePart named `Handle` with the barrel along its negative Z axis, every other fixed
+     part welded to it (a `WeldConstraint` is enough);
+   - the grip: the `Motor6D` between the rig's `Right Arm` (`Part0`) and the part the hand
+     holds (`Part1`, normally `Handle`), `C0`/`C1` as you built them. It has to live inside
+     the model: if your weld plugin left it inside the arm, drag it under `Handle`;
+   - parts of the weapon that move in animations (`Magazine`, `Bolt`) as their own BasePart
+     on a `Motor6D` from the `Handle`;
+   - a point named `Muzzle` at the end of the barrel, and one named `Sight` where the eye sits
+     behind the rear sight (the camera goes there when aiming in first person). Either is an
+     Attachment on the `Handle` or an invisible BasePart inside the model, whichever is easier
+     to place; a loose part gets welded to the `Handle` like any other. Keep one of each: with
+     two `Muzzle`s a Part wins over an Attachment, and both win over the default Attachment the
+     loader adds at the front of the `Handle` when a model has none (it carries the attribute
+     `AzazelDefault`; delete it from the asset if a played copy ever leaked back into it);
+   - no scripts, Values, emitters, hitboxes or helper parts. Sounds live in `Assets/Sounds`
+     (`Assets/Sounds/AK47/Fire` for the weapon's own shot; `ModeSelect`, `RemoveMag` and
+     `InsertMag` shared at the root, see "Sounds"), not inside the model.
+   A duplicated or dragged model keeps every motor's `Part0` pointing at the rig, and the game
+   plugs the character part of that name in. Copy and paste loses `Part0`; then name each
+   motor after the body part it belongs to (`Right Arm`, `Left Arm`, `Torso`).
+   Rescale a pack with the Scale tool, one factor for every gun so they stay proportional.
+   Free models are never trusted: every time the model is cloned, scripts are deleted, loose
+   parts are welded to the `Handle`, welds to anything outside the model are dropped with a
+   warning, collisions and queries are turned off and a missing `Muzzle` is placed at the
+   front of the `Handle`. A model with no `Motor6D` to the character is held with a default
+   grip and warns.
+2. Add an entry to `Config/Weapons.luau`, the one module that lists every weapon:
    ```lua
-   require(game.ReplicatedStorage.Azazel.Dev.Commands).ImportWeapon(game.Selection:Get()[1], "AK47")
-   ```
-   The first argument may be a Model or a Tool (the Roblox Weapons Kit and Viethin packs ship
-   Tools); with no argument the current Studio selection is used. A third argument tunes the
-   import: `{ Scale = 0.03, Material = "SmoothPlastic" }` (`Scale` is `Model:ScaleTo`, use the
-   same factor for a whole pack so the guns stay proportional; `Material` is for flat colored
-   meshes).
-   The import keeps only what Azazel reads: a part named `Muzzle` becomes the `Muzzle`
-   attachment on the `Handle`, a part named `Magazine` gets a `Motor6D` from the `Handle` so
-   the Animation Editor can move it (a part named `MagazineAttachment` marks the pivot, as in
-   the Viethin rig), sounds leave the model (a `Sound` named `Fire*` is the weapon's own and
-   becomes `Assets/Sounds/AK47/Fire`, several of them become the layers inside a `Fire` folder
-   there; any other name is shared by every weapon and lands in `Assets/Sounds/<Name>`, first
-   import wins; `Manifest.Import.SoundRenames` fixes names first), and everything else that is
-   not geometry
-   (scripts, Values, emitters, hitboxes, helper parts) is destroyed. The rest is welded to the `Handle` with collisions and queries off, and the copy
-   lands in `Assets/Weapons/AK47`. The name lists live in `Assets/Manifest.luau` under
-   `Import`; add `Bolt` or `Eject` there the day an animation or effect needs them. Free models
-   are never trusted: the scripts are deleted on import and again every time the model is
-   cloned.
-2. Create `Config/Weapons/AK47.luau`:
-   ```lua
-   return {
-       Name = "AK47",
+   AK47 = {
        DisplayName = "AK-47",
        Class = "Rifle",
        Model = "AK47",
-       Grip = CFrame.new(0, -0.1, 0.3) * CFrame.Angles(math.rad(90), 0, 0),
        Rpm = 600,
        Damage = { Base = 36 },
-   }
+       Effects = { Tracer = { Color = Color3.fromRGB(80, 200, 255) } },
+   },
    ```
-   Every key not present falls back to the class, then to `WeaponConfig.Defaults`. The full key
-   list is in `WeaponConfig.luau`. `Grip` is the `C1` of the Motor6D that holds the `Handle`
-   (`C0` is always `Rig.HandOffset`, `(0, -1, 0)` on R6), the same meaning as `Tool.Grip`: build
-   the joint on a rig, read `C1` in the Properties panel and paste it. Default `Angles(90, 0, 0)`.
+   The key is the weapon name. Every key not present falls back to the class, then to
+   `WeaponConfig.Defaults`; the full key list is in `WeaponConfig.luau`. `Effects.Tracer`
+   (`Color`, `Light`, `Width`, `Length`...) gives the weapon its own tracer look; the defaults
+   are `Settings.Effects.Tracer`. There is no grip value: the joint comes with the model.
 3. Give it to a player (`Azazel.GiveWeapon`) or add it to `Settings.Server.DefaultLoadout`.
 
 Weapon models need a `Handle` BasePart with the barrel pointing along its negative Z axis, a
 `Muzzle` attachment and, optionally, `Sight` (aim point for first person aiming) and `Eject`.
 A part that should move in animations (magazine, bolt) must be its own BasePart joined to the
-`Handle` by a `Motor6D`; the import creates that joint from the names above. Meshes from the
+`Handle` by a `Motor6D` named after the part. Meshes from the
 Quaternius or Kenney packs come as one object: split the magazine off in Blender (Edit Mode,
 hover it, `L`, `P` > Selection), name the objects `Handle` and `Magazine`, export FBX.
 
 Free model sources that work well: the Roblox Weapons Kit models (Creator Store, endorsed),
 Quaternius and Kenney packs (CC0, import through Studio's 3D importer).
 
-## Tuning the grip
+## The grip
 
-Either set `C1` on the `Handle` Motor6D of your animation rig until the weapon sits right and
-copy it into `Grip`, or, with the weapon equipped in Play, use the client command bar:
-
-```lua
-local Dev = require(game.ReplicatedStorage.Azazel.Dev.Commands)
-Dev.GripMove(0, 0.1, -0.2)      -- studs, relative to the current grip
-Dev.GripRotate(0, 15, 0)        -- degrees
-Dev.GripReset()                 -- back to the config value
-Dev.PrintGrip()                 -- prints the Grip line to paste into the weapon config
-```
+How a weapon sits in the hand is the `C0`/`C1` of the `Motor6D` that holds the `Handle`, and
+that joint lives inside the weapon model, copied from the animation rig. To move the weapon
+in the hand, adjust the joint on the rig and copy the model again: every character and the
+viewmodel follow, and the clips stay valid because a pose is a transform on top of that joint.
+The same goes for every other joint the model brings: the game
+never invents a `C0` or `C1`, it only fills `Part0` with the character part named like the
+one the motor still points at, or like the motor itself, or, for the `Handle`, the hand.
 
 ## Accuracy model
 
@@ -252,7 +272,7 @@ carry a bullet texture from `Beam.Texture`).
 The tracer light is a `PointLight` without shadows. With `Lighting.Technology` on Voxel or
 Compatibility, Roblox computes point lights on a 4 stud grid and a moving light shows up as
 blocky patches on the ground; set it to ShadowMap or Future (Studio, Lighting properties; it is
-not scriptable). `Doctor()` warns about it. Turn the light off with
+not scriptable). Turn the light off with
 `Settings.Effects.Tracer.Light.Enabled = false`, or limit it per quality level with
 `TracerLightDistance` (studs from the camera; 0 disables). The light color is fixed
 (`Light.Color`) so a colored tracer never tints the map.
@@ -268,9 +288,7 @@ The falloff is a curve, not a table: full damage until `FalloffStart`, then it e
 `FalloffMultiplier` at `FalloffEnd` with the exponent `FalloffCurve` (1 linear, above 1 holds
 full damage longer and drops late, below 1 drops early and levels out), and stays there until
 `Range`, where the bullet stops existing. The math lives in `Shared/Damage.luau` so the game can
-draw it: `Damage.Curve(cfg, step, zone)` returns points, and in Studio
-`Dev.Commands.PrintFalloff()` prints every weapon side by side, or
-`PrintFalloff("Shotgun", 10, "Torso")` prints one curve as CSV.
+draw it: `Damage.Curve(cfg, step, zone)` returns the points of one weapon and zone.
 
 Classes are ordered by how much they keep at range: Shotgun (20%, 150 studs), Pistol (45%,
 400), SMG (50%, 550), Rifle (65%, 1100), Sniper (85%, 2500). Any weapon overrides its class.
@@ -279,15 +297,47 @@ Classes are ordered by how much they keep at range: Shotgun (20%, 150 studs), Pi
 
 Press V. `Client/Controllers/ViewmodelController` clones the player's own character, keeps only
 the root, torso and arms (plus shirt and body colors), strips joints, scripts and accessories,
-adds an `AnimationController` and parents it to the camera. The weapon is a fresh
-`WeaponModel.Clone` attached with the same Motor6D `Handle` the server uses, so the same
-animations drive both. Each frame the root follows the camera with `Settings.Viewmodel.Offset`,
-plus mouse sway, walk bob and a recoil kick (`Recoil.Viewmodel` per weapon), all springs. Aiming
-lerps to a pose that puts the weapon's `Sight` attachment at the screen center
-(`Ads.SightDistance` in front of the camera); without a `Sight`, `Ads.ViewmodelOffset` is used.
-The real character is hidden with `LocalTransparencyModifier`. Third person has no viewmodel.
+adds an `AnimationController` and parents it to the camera. Only the arms of that clone are
+drawn: the root and torso are there to carry the joints. The weapon is a fresh
+`WeaponModel.Clone` attached through the joints that ship inside the model, the same ones the
+server plugs into the real character, so the same animations drive both. Each frame the clone
+stands exactly where the real body stands, turned with the camera about the eye: the eye sits
+`Camera.FirstPersonOffset` above the root (the head on R6), so the clone's root goes the same
+distance back down and a clip made on the animation rig lands in first person exactly as it
+lands on the character. Nothing in code places the arms: no offset, no rest pose, no
+per-weapon tweak. What you see in first person is the clip seen from the head, so animate
+`Relaxed`, `Idle` and `Aim` looking from there. On top come mouse sway and walk bob, both
+springs, zero at rest; a shot moves only the camera (`Recoil.Camera`), never the arms, so the
+sight stays on the eye while aiming. Aiming moves the camera, not
+the arms: over `Ads.Time` the eye slides from the head onto the weapon's `Sight` attachment
+(`Client.SightOffset`), so the sight line is wherever the `Aim` clip holds the weapon; the
+camera keeps the mouse rotation, so the clip has to hold the barrel parallel to the torso's
+front. Without a `Sight` the camera stays at the head.
+The real character is hidden whole with `LocalTransparencyModifier`, and the clone draws only
+the arms and the weapon. `Settings.Viewmodel.ShowBody = true` keeps the real torso and legs
+visible below the camera instead and hides only the head, the arms, the accessories on them and
+the held weapon (`Rig.FirstPersonHidden` names the parts). Third person has no viewmodel.
 
 `ViewmodelController.GetAnimator()` returns the viewmodel's Animator for the animation set.
+
+## Sounds
+
+Sounds are Sound instances placed by hand under `ReplicatedStorage/Azazel/Assets/Sounds`,
+named by slot. The weapon's own go in a folder named after its model (`Assets/Sounds/FN
+FNC/Fire`; the weapon `Name` or `DisplayName` works too), the shared ones sit right under
+`Assets/Sounds` (`Assets/Sounds/ModeSelect`). A slot can also be a Folder of Sounds, played
+together as layers. `Sounds = { Fire = "AK47Fire" }` on a weapon entry points a slot at any
+child of `Assets/Sounds` instead. Volume, rolloff and pitch are whatever the Sound carries; a
+missing slot is silence.
+
+| Slot | Plays |
+|---|---|
+| `Fire` | every shot, at the shooter's weapon: the local one from `LocalShot`, the others from `ShotFired` |
+| `ModeSelect` | when the fire mode changes, for the player who changed it |
+| `RemoveMag`, `InsertMag` | on a reload, one after the other: the second starts when the first ends. Animation markers will place them later |
+
+Every sound is cloned onto the weapon's `Handle` and destroyed when it ends.
+`Settings.Sounds.Enabled = false` mutes the package.
 
 ## Ragdoll
 
@@ -297,10 +347,14 @@ then anchors the real character with collisions off and fires the `Ragdoll` remo
 client with the character, the part that took the hit and the shot direction. Each client
 hides the real character locally and builds its own copy with `Shared/Ragdoll.Build`: the
 root is dropped, every limb Motor6D becomes a `BallSocketConstraint` with the limits from
-`Settings.Ragdoll.Joints`, the copy inherits the character's velocity and gets
-`Settings.Ragdoll.Impulse` along the shot on the hit part. The copy lives under the effects
-folder, is simulated only on that client, fades for `FadeTime` and is removed after
-`Lifetime`; `RagdollMaxLive` per quality level drops the oldest one first.
+`Settings.Ragdoll.Joints`, and every part gets an invisible collider welded inside it
+(`ColliderScale` of its size), because a Humanoid keeps its limbs from colliding even dead
+and the body would sink into the floor without one. The copy inherits the character's
+velocity plus `Settings.Ragdoll.BodyImpulse` along the shot on every part, and the part that
+took the killing hit `Impulse` on top, so a chest shot from the front throws the body onto its
+back. The copy lives under the effects folder, is simulated only on that client,
+fades for `FadeTime` and is removed after `Lifetime`; `RagdollMaxLive` per quality level
+drops the oldest one first. The rig is whatever the character was: R6 stays R6.
 
 ## Quality levels
 
@@ -334,8 +388,11 @@ character faces, pitch above `MaxPitch`. Rejections resync the client and, with
 
 With `Settings.Debug.Enabled`, `Settings.Debug.ServerTracers` draws a line per shot from the
 server, Studio only, so the Server view of a playtest shows where the server thinks bullets
-went, and `Settings.Debug.ClientShots` draws and prints the client side of every shot. Neither
-runs live.
+went, and `Settings.Debug.ClientShots` draws and prints the client side of every shot: with
+`Print` on, `[Azazel:Shot]` lists the camera ray, the head origin, the muzzle the tracer starts
+from and `muzzleSource`, the instance that muzzle came from (a Part, an Attachment, or the
+`Handle` center fallback when the model has none); with `Draw` on, the muzzle is the point in
+`Colors.Muzzle`. Neither runs live.
 
 Every remote is declared in `Shared/Remotes.luau` with a payload schema and a per player rate
 limit. `Settings.Server.KickOnAbuse` kicks after `AbuseThreshold` violations. The package has
@@ -345,67 +402,96 @@ no RemoteFunctions, no HTTP, no DataStore and no secrets.
 
 Animations are made by hand in the Animation Editor, one set per weapon class, and stored as
 KeyframeSequence instances inside `Assets/Animations/<Class>/<Slot>`. The weapon has three
-resting states and two actions, one slot each: the rest is optional and skipped when absent.
+resting states and one action, one slot each: the rest is optional and skipped when absent.
+There is no `Fire` slot: the shot is the camera kick, the viewmodel spring and the effects.
 
 | Slot | Plays | Length | Loop |
 |---|---|---|---|
 | `Relaxed` | as soon as the weapon is drawn: in the hand, lowered, not armed. Aiming and firing are off; reloading works | free | yes |
 | `Idle` | after the ready key (`Keys.Ready`, F): armed, hip hold, can fire. The key toggles back to `Relaxed` | free | yes |
-| `Aim` | while the aim button is held from `Idle`; in first person the code also aligns `Sight` to the screen center | free | yes |
-| `Fire` | once per shot, on top of `Idle`/`Aim` | about `ShotInterval` | no |
-| `Reload` / `ReloadEmpty` | once, from `Relaxed` or `Idle`, back to the same state; empty variant when the magazine was dry | `Reload.Time` / `EmptyTime` | no |
-| `Equip`, `Unequip`, `Sprint`, `Inspect` | optional: drawing, holstering, sprinting, inspect key. Sprint only changes speed by default; legs keep the Roblox `Animate` | `EquipTime` / `EquipTime` / free / free | no / no / yes / no |
+| `Aim` | while the aim button is held from `Idle`; in first person the camera moves onto the `Sight` | free | yes |
+| `Reload` / `ReloadEmpty` | once, from `Relaxed` or `Idle`, back to the same state; empty variant when the magazine was dry | the clip's own: it is the timer | no |
+| `Equip`, `Unequip`, `Sprint`, `Inspect` | optional and unused by default: `Equip` plays when the weapon is drawn, `Sprint` replaces `Idle` while the sprint key is held, `Unequip` and `Inspect` have no trigger yet. Sprint only changes speed; the legs keep the Roblox `Animate` | free | no / no / yes / no |
 
-`Reload`, `Equip` and `Unequip` are resampled with `AdjustSpeed` so the clip ends exactly when
-the config timer does. Higher slots only override the joints they key, so a `Fire` that moves
-just the `Handle` keeps the arms of `Idle` underneath. Animate only `Right Arm`, `Left Arm`,
+The clip is the timer. Every clip plays at the speed it was animated, and for a reload the
+server reads the length of the `Reload` (or `ReloadEmpty`) KeyframeSequence, its last keyframe,
+and keeps the weapon in `Reloading` exactly that long, so the state and the animation end
+together (`Animations.ClipLength`, `Animations.ReloadTime`). `Reload.Time` and `EmptyTime` in
+the config only count for a weapon with no clip. Keep the KeyframeSequences under
+`Assets/Animations` after publishing: the ids play, the sequences tell the timers how long.
+`Settings.Animations.LogSlots` prints the slots found and their lengths. Higher slots only override the joints they key, so a clip that keys
+just the `Handle` and `Magazine` keeps the arms of `Idle` underneath. Animate only `Right Arm`, `Left Arm`,
 `Handle` and `Magazine` (plus `Torso` if you want); the root, head and legs stay with the
 default `Animate`, so walking and jumping keep working under every slot.
 
 Roblox only plays KeyframeSequences directly inside Studio. In a published experience the
 animation must be uploaded by the experience owner. The workflow is:
 
-1. Build the reference rig: `Dev.BuildAnimationRig("FAL")`. It spawns an R6 dummy in front
-   of the camera with the weapon attached by the same Motor6D used in game and selects it.
-2. Open the Animation Editor on the rig, animate `Right Arm`, `Left Arm`, `Handle` and
-   `Magazine` (and `Torso` if you want), and save each animation named exactly by its slot
-   (`Relaxed`, `Idle`, `Aim`, `Fire`, `Reload`). The editor stores them as KeyframeSequences in
-   `rig.AnimSaves`.
-3. `Dev.CollectAnimSaves()` copies them into `Assets/Animations/<Class>/<Slot>` with the right
-   priority and loop flag (`Dev.CollectAnimSaves(rig, true)` stores per weapon instead).
+1. A rig with the game's body part names (`Right Arm`, `Left Arm`, `Torso`) and the weapon
+   Model inside it (`Handle` joined to `Right Arm` by a Motor6D kept inside the weapon model,
+   `Magazine` joined to `Handle`). Only a part on a Motor6D gets a track. A KeyframeSequence
+   stores poses by part name on top of the joint, and the models carry those joints into the
+   game, so the same clip drives the character, the viewmodel and the rig.
+2. Animate in the Animation Editor or Moon Animator, one clip per slot (`Relaxed`, `Idle`,
+   `Aim`, `Reload`), keying `Right Arm`, `Left Arm`, `Handle` and `Magazine` (and `Torso` if
+   you want). Only Motor6D joints become tracks. Export each clip as a KeyframeSequence.
+3. Put the KeyframeSequence in `Assets/Animations/<Class>/`, named exactly by its slot (a clip
+   for one weapon goes in `Assets/Animations/Weapons/<Name>/`). Priority and loop come from
+   the slot name at load time (`Assets/Manifest.luau`), so the instance needs only the name.
 4. Play in Studio: the loader registers the KeyframeSequences on the fly.
 5. To publish: right click each KeyframeSequence, Save to Roblox, paste the ids into
-   `Config/AnimationIds.luau`. `Dev.Commands.ReportMissingAnimationIds()` lists what is missing.
+   `Config/AnimationIds.luau`.
 
-The playback module ships in the animation milestone (see Roadmap); the rig commands work now.
+`Shared/Animations` does the playback: one set per equipped weapon, bound to the Animator of
+the character and, in first person, to the Animator of the viewmodel, so one clip drives both.
+A looped slot is a stance and replaces the one playing; anything else is an action over it.
+Priority and loop come from the slot name (`Assets/Manifest`), a missing slot is skipped (the
+arms then hang, since no code poses them), and with the Backpack on the tool track of the default `Animate`
+script is stopped so the stance wins the right arm (`Settings.Animations.OverrideToolTrack`).
+Nothing in the package runs from the command bar: every asset is placed by hand and the code
+only reads it.
 
-## Dev commands (Studio only)
+### Weapon states
 
-```lua
-local Dev = require(game.ReplicatedStorage.Azazel.Dev.Commands)
-Dev.Setup()                      -- create Assets folders
-Dev.Weapons()                    -- list configured weapons
-Dev.SpawnDummy(3)                -- three R6 dummies in front of the first player (Play, server)
-Dev.Give("DebugRifle")           -- give and equip to the first player (Play, server)
-Dev.ImportWeapon(model, "Name", { Scale = 0.03 })  -- free model (Model or Tool) into Assets/Weapons
-Dev.ImportWeapons(workspace.Guns, { Scale = 1 })   -- every Tool/Model in a container, names stripped to [A-Za-z0-9]
-Dev.BuildAnimationRig("FAL")       -- R6 dummy with the weapon attached, for the Animation Editor
-Dev.CollectAnimSaves()           -- move saved KeyframeSequences into Assets/Animations
-Dev.ReportMissingAnimationIds()  -- KeyframeSequences without ids and ids without sequences
-Dev.Doctor()                     -- validate configs against assets
-Dev.GripMove / GripRotate / GripReset / PrintGrip   -- tune the weapon offset in Play
-```
+`EquipState` in the state snapshot is what the server allows, and the client animates it:
 
-The module returns an empty table outside Studio.
+| State | How it is reached | What it allows |
+|---|---|---|
+| `Holstered` | no weapon equipped | nothing |
+| `Relaxed` | the moment a weapon is drawn: in the hand, lowered. Drawing is instant, and the optional `Equip` clip plays over it. Camera and movement are plain Roblox | reload, equip another weapon |
+| `Ready` | the ready key (`Settings.Keys.Ready`, F) from `Relaxed`. The package takes the camera: locked cursor, the character faces the camera, arms and head follow its pitch | fire, aim, reload; the key lowers it again |
+| `Reloading` | reload from `Relaxed` or `Ready`, for the length of the clip | returns to the state it started from; the camera stays as it was |
+
+The server owns it: `Combat` only accepts a shot in `Ready`, only accepts aiming in `Ready`,
+and the client does not even send them otherwise. `Azazel.SetRelaxed(player, relaxed)` does the
+same from your own code (a cutscene, a safe zone). The HUD hides the crosshair while the weapon
+is lowered and shows `Strings.Reloading` in place of the ammo count while it reloads; there is
+no other text on screen.
+
+With the weapon lowered (`Relaxed`) or away (`Holstered`) the package steps aside: the default
+Roblox camera comes back with its cursor and its own zoom, the character faces where it walks,
+`V` and the shoulder swap do nothing, and the crosshair is hidden (the ammo panel stays while a
+weapon is in the hand). Arming takes the camera over from the angles it was already at, in the
+view (`V`) the player last chose, so the view never snaps.
+
+### Look pitch
+
+While armed (`Ready`, `Idle` or `Aim`, and a reload started there) the character's shoulders
+and neck turn with the camera pitch on top of the clip, so in third person the arms and head
+aim where the player looks. Motor6D transforms never replicate, so the client sends its pitch
+on the unreliable `Look` remote (`Settings.Look.SendRate` a second, whole degrees, only when it
+moved) and the server relays it to everyone else as `LookUpdate`; each client turns the other
+characters itself, easing over `Smoothing` and levelling out after `Timeout` without news.
+`Rig.LookJoints` names the joints per rig. `Settings.Look.Enabled = false` turns it all off.
 
 ## Roadmap
 
 | Milestone | Content |
 |---|---|
 | 1 | Skeleton, remotes, config, server combat, camera, prediction, tracer, HUD |
-| 2 | Real weapon models, hotbar, equip flow, helmet and vest, animation rig commands (this version) |
+| 2 | Real weapon models, hotbar, equip flow, helmet and vest (this version) |
 | 3 | Feel: recoil, aim down sights, shoulder swap, camera collision, scope, effects, sounds |
-| 4 | Animation playback (Studio auto-register, id manifest) |
+| 4 | Animation playback: slots, weapon states, reload markers (this version) |
 | 5 | First person viewmodel cloned from the rig, client side ragdoll (this version) |
 | 6 | Hardening, R15 tables, first alpha tag |
 

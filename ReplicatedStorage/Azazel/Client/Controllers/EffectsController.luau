@@ -8,7 +8,7 @@ local Settings = require(package.Config.Settings)
 local WeaponConfig = require(package.Config.WeaponConfig)
 local Remotes = require(package.Shared.Remotes)
 local WeaponModel = require(package.Shared.WeaponModel)
-local ShotDebug = require(package.Dev.ShotDebug)
+local ShotDebug = require(script.Parent.Parent.ShotDebug)
 local PartCache = require(package.Packages.PartCache)
 
 local EffectsController = {}
@@ -277,7 +277,8 @@ end
 
 function EffectsController.Start()
     Signals.LocalShot:Connect(function(origin, ends, cfg)
-        local model = WeaponModel.Find(localPlayer.Character)
+        -- The gun on screen: the viewmodel's in first person, the character's in third.
+        local model = Client.ViewmodelWeapon or WeaponModel.Find(localPlayer.Character)
         local muzzle = WeaponModel.MuzzlePosition(model) or origin
         if ShotDebug.Enabled() then
             for index, endPoint in ends do

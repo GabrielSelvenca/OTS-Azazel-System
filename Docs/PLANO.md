@@ -33,7 +33,7 @@ Fatos verificados que moldam o desenho:
 | Camera | OTS com mouse travado, ombro configuravel + troca de ombro, boneco gira com a camera, **V** alterna 1a/3a, botao direito = ADS (FOV e distancia por arma). |
 | Arma | **Model + Motor6D `Handle`** (Part0 = Right Arm, Part1 = Handle), sem Tool. Equipar/hotbar em codigo. |
 | Animacoes por | **Classe** (Pistol, SMG, Rifle, Shotgun, Sniper) com **offset de encaixe por arma** (C1 do Motor6D). Arma pode sobrescrever slot. |
-| Slots v1 | Idle, Fire, Reload, Equip (codigo preve tambem Aim, ReloadEmpty, Sprint, Inspect, Unequip; slot ausente e ignorado). |
+| Slots v1 | Relaxed, Idle, Aim, Reload (sem Fire, Gabriel 15/09; codigo preve tambem ReloadEmpty, Equip, Sprint, Inspect, Unequip; slot ausente e ignorado). |
 | Armas v1 | Pistola (semi), SMG (auto), Fuzil (auto/semi), Shotgun (pellets), Sniper (scope). |
 | Git | `git init` na raiz + primeiro commit e tag por mim. |
 | Codigo | Tudo em ingles, comentarios minimos, nomes claros, 4 espacos, PascalCase (modulos/instancias/config) e camelCase (locais). Strings visiveis ao jogador em ingles numa tabela `Strings` sobrescrivel pelo jogo. |
@@ -52,8 +52,8 @@ OTS Azazel System/
     Version.luau                         Major/Minor/Patch/Channel/Build, ToString(), Tag()
     Config/
       Settings.luau                      Camera, Viewmodel, Keys, Hud, Server, Effects, Animations, Debug, Strings
-      WeaponConfig.luau                  Defaults <- Classes[class] <- Weapons/<Name>; Get, All, Resolve(name, modifiers)
-      Weapons/<Name>.luau                um por arma (Pistol, SMG, Rifle, Shotgun, Sniper no lote 1)
+      WeaponConfig.luau                  Defaults <- Classes[class] <- Weapons[Name]; Get, All, Resolve(name, modifiers)
+      Weapons.luau                       todas as armas em um modulo so, uma entrada por nome (alpha.24)
       EquipmentConfig.luau               Get, All, StackModifiers(list)
       Equipment/<Name>.luau              HelmetLight, VestLight...
       AnimationIds.luau                  manifesto [Class][Slot], Weapons[Name][Slot], R15[Class][Slot]
@@ -62,16 +62,15 @@ OTS Azazel System/
       Accuracy.luau                      puro: Step(state,cfg,now), Cone(cfg,state,ctx), Sample(dir,coneDeg,rng), PixelsFor
       Rig.luau                           abstracao do rig (R6 agora, tabela R15 stub): nomes de partes/juntas, HandOffset, ViewmodelKeep, ZoneOf(part), Detect(character)
       WeaponModel.luau                   Clone(cfg) | Placeholder(), Sanitize, Attach(rig, model, cfg) via Motor6D "Handle", Detach, FindAttachment
-      Animations.luau                    slots (prioridade/loop), resolucao de id Studio x live, NewSet(class, weapon) -> Bind/Unbind/Play/Stop/Destroy, ReportMissing
+      Animations.luau                    slots (prioridade/loop pelo Manifest), resolucao de id Studio x live, NewSet(class, weapon) -> Bind/Unbind/Play/Stop/Destroy
       Spring.luau                        mola com impulso (Vector3) para sway/bob/recoil do viewmodel
       UIKit.luau                         New(className, props) com pseudo-props Corner/Stroke/Padding/ListLayout/GridLayout/Children; Theme; Screen(name)
     Packages/                            vendorados de Cons: Trove, Signal (EasySignal/Signal), Spr (_Spr), T, Shake, PartCache/, Observers/
     Assets/
-      Manifest.luau                      lista esperada (Doctor); mantem a pasta no repo
-      Weapons/<Model>  Animations/<Class>/<Slot>  Animations/Weapons/<Name>/<Slot>  Effects/  Sounds/   (a mao no Studio)
-    Dev/
-      Commands.luau                      so Studio: BuildAnimationRig, CollectAnimSaves, PrintGrip, ImportWeapon, ReportMissingAnimationIds, Doctor, Give, SpawnDummy
+      Manifest.luau                      slots de animacao (nomes, prioridade, loop); mantem a pasta no repo
+      Weapons/<Model>  Animations/<Class>/<Slot>  Animations/Weapons/<Name>/<Slot>  Reload/<Class>  Reload/Weapons/<Name>  Effects/  Sounds/   (a mao no Studio)
     Client/
+      ShotDebug.luau                     linhas e prints de tiro no client (Settings.Debug.ClientShots, so Studio)
       init.luau                          bus do client: Signals (WeaponChanged, AmmoChanged, SprayChanged, ViewChanged, AimChanged, StateChanged, LocalShot)
       Controllers/
         InputController.luau             ContextActionService <- Settings.Keys -> Signals do bus + IsDown()
@@ -98,7 +97,7 @@ mesmo nome `Azazel`, e logica de server nao replica. Controllers em `ReplicatedS
 
 ### Modelo de dados (resumo; shape completo vai no README)
 
-`Config/Weapons/AK47.luau`: `Name, DisplayName, Class, Model, Grip (CFrame C1), FireModes, Rpm,
+Entrada `AK47` em `Config/Weapons.luau`: `DisplayName, Class, Model, FireModes, Rpm,
 Burst{Count,Rpm}, Magazine, Reserve, Reload{Mode,Time,EmptyTime}, EquipTime, Range,
 Damage{Base,FalloffStart,FalloffEnd,FalloffMultiplier,Zones{Head,Torso,Limb}},
 Accuracy{Base,AimMultiplier,HipMultiplier,PerShot,Max,RecoveryDelay,RecoveryTime,Movement{...=1}},
@@ -159,8 +158,10 @@ remotes e dados para todos os clients.
   juntas Neck/Hip). Adiciona `AnimationController + Animator`. Partes: sem colisao/query/touch,
   Massless, CastShadow off; root ancorado e invisivel. Parent = `workspace.CurrentCamera`.
 - Arma: `WeaponModel.Clone(cfg)` fresco de `Assets` + `WeaponModel.Attach` (mesma funcao que o
-  server usa no boneco real, mesmo Motor6D `Handle`, `C0 = Rig.HandOffset`, `C1 = cfg.Grip`).
-- Esconde o boneco real via `LocalTransparencyModifier = 1` (reaplica em DescendantAdded).
+  server usa no boneco real; as juntas vem dentro do modelo, `Attach` so preenche `Part0`).
+- Do boneco real esconde so cabeca, bracos, acessorios deles e a arma (`LocalTransparencyModifier`,
+  `Rig.FirstPersonHidden`, reaplica em DescendantAdded); torso e pernas ficam visiveis
+  (`Settings.Viewmodel.ShowBody`, alpha.24). No clone so os bracos aparecem.
 - RenderStep (apos a camera): `root.CFrame = hipCF:Lerp(sightCF, adsAlpha) * sway * bob * recoil`,
   com molas proprias (`Shared/Spring`) para sway/bob/recoil e `Spr` para FOV/distancia/adsAlpha.
   `sightCF` alinha o attachment `Sight` ao centro da tela; sem `Sight` usa `Ads.ViewmodelOffset`.
@@ -169,17 +170,17 @@ remotes e dados para todos os clients.
 
 ### Pipeline de animacao
 
-- Slots (prioridade): Idle (Idle, loop), Aim/Sprint (Movement, loop), Fire (Action2), Reload/
-  ReloadEmpty/Inspect (Action), Equip/Unequip (Action3). Reload/Equip usam `AdjustSpeed` para
+- Slots (prioridade): Relaxed/Idle (Idle, loop), Aim/Sprint (Movement, loop), Reload/
+  ReloadEmpty/Inspect (Action), Equip/Unequip (Action3). Sem slot Fire (Gabriel, 15/09): o tiro
+  e kick de camera, mola do viewmodel e efeitos. Reload/Equip usam `AdjustSpeed` para
   casar com o tempo do config.
 - `ResolveId(class, slot, weapon)`: `cfg.Animations[slot]` -> `AnimationIds.Weapons[name][slot]`
   -> `AnimationIds[class][slot]`. No Studio, antes do manifesto, procura KeyframeSequence em
   `Assets/Animations/Weapons/<Name>/<Slot>` e `Assets/Animations/<Class>/<Slot>` e registra.
-- Fluxo do Gabriel: `BuildAnimationRig("Rifle","AK47")` na Command Bar -> Animation Editor no rig
-  (a arma aparece como junta) -> anima Idle/Fire/Reload/Equip -> Save (vai para `rig.AnimSaves`)
-  -> `CollectAnimSaves()` move para `Assets/Animations/Rifle/<Slot>` -> Play ja toca -> quando for
-  publicar: botao direito na KeyframeSequence > Save to Roblox -> cola o id em `AnimationIds.luau`
-  -> `ReportMissingAnimationIds()` vazio.
+- Fluxo do Gabriel: rig proprio com os nomes do jogo -> Moon Animator ou Animation Editor ->
+  anima Relaxed/Idle/Aim/Reload -> exporta KeyframeSequence -> renomeia pelo slot e coloca a mao
+  em `Assets/Animations/Rifle/` -> Play ja toca -> quando for publicar: botao direito na
+  KeyframeSequence > Save to Roblox -> cola o id em `AnimationIds.luau`.
 - Orientacao no README: animar so `Right Arm`, `Left Arm`, `Handle` (e Torso se quiser); deixar
   root/cabeca/pernas sem keyframe para o Animate padrao continuar andando/pulando por baixo.
 
@@ -226,7 +227,7 @@ PlayerRemoving/CharacterRemoving; toda conexao em Trove.
 Passo 0: copiar de `Cons\Cons\` os modulos vendorados para `ReplicatedStorage/Azazel/Packages/`
 (pedido do Gabriel: "adicione a Cons agora"). `git init`, `.gitignore`, `Version 0.1.0-alpha.1`,
 README/CHANGELOG/COMMITS, `.githooks`. `Remotes`, `Settings`, `WeaponConfig` +
-`Weapons/DebugRifle.luau` (sem `Model` -> cubo placeholder com `Handle` e `Muzzle`), `Rig`,
+entrada `DebugRifle` em `Config/Weapons.luau` (sem `Model` -> cubo placeholder com `Handle` e `Muzzle`), `Rig`,
 `WeaponModel`, `Accuracy`, `Inventory/CharacterRig/Combat`, bootstraps, `Input/Camera
 (OTS, lock, boneco gira)/Weapon (loop + predicao)/Effects (tracer fino que viaja)/Hud (municao +
 crosshair)`. A mao: Game Settings > Avatar > R6. Commit + tag.
@@ -250,10 +251,12 @@ Verificar: primeira bala no ponto; segurar abre o crosshair e os impactos; solta
 `RecoveryTime`; shotgun manda 8 `ends`; FOV e overlay da sniper; tracer sai do cano ate o impacto.
 
 **Fase 4 — Pipeline de animacao.**
-`Animations`, `ReportMissingAnimationIds`, `WeaponController` tocando slots (Idle em loop no
-equip, Fire por tiro, Reload/Equip cronometrados). A mao: animar Idle/Fire/Reload/Equip do Rifle.
+`Animations`, `WeaponController` tocando slots (Relaxed/Idle em loop, Aim segurando o botao,
+Reload cronometrado; sem Fire); prioridade e loop pelo nome do slot no Manifest, porque as
+KeyframeSequences entram a mao. A mao: animar Relaxed/Idle/Aim/Reload do Rifle (Relaxed, Idle e
+Aim prontos em 15/09).
 Verificar: toca no Play por auto-registro; segundo client (Test com 2 jogadores) ve a animacao
-do outro; `ReportMissingAnimationIds()` lista 4 ate colar os ids.
+do outro.
 
 **Fase 5 — Viewmodel 1a pessoa.**
 `ViewmodelController`, `Spring`, V, esconder boneco, ADS pelo `Sight`. A mao: attachments
@@ -309,10 +312,27 @@ cano solto do placeholder, tracer nascendo atras do cano.
   o nivel. Ver [Qualidade.md](Qualidade.md).
 - Linhas de depuracao do servidor no Studio (`Settings.Debug.ServerTracers`). Ver
   [MelhoriasServer.md](MelhoriasServer.md).
+- Corpo em 1a pessoa (alpha.24): torso e pernas reais visiveis, so cabeca, bracos e arma
+  escondidos (`Settings.Viewmodel.ShowBody`).
+- Armas em um modulo so, `Config/Weapons.luau` (alpha.24). Sem slot `Fire` (Gabriel, 15/09).
+  Mira e `Sight` em [Miras.md](Miras.md); animacao em [Animacoes.md](Animacoes.md).
+- Sem comandos de Studio (alpha.24): pasta `Dev/` apagada por regra do Gabriel; tudo em
+  `Assets` entra a mao. `Client/ShotDebug` ficou porque e config, nao comando.
+- Juntas dentro do modelo (alpha.24, 16/09): o modelo duplicado do rig traz os Motor6D
+  (`Handle` <- braco direito, `Magazine` <- `Handle`) com `C0`/`C1`; `Attach` so preenche
+  `Part0` pelo nome da parte que o motor ainda aponta, pelo nome do motor ou por
+  `Rig.WeaponJoints`. `Grip` saiu do config. (O kit de pentes em `Assets/Reload/<Classe>`
+  que entrou aqui foi apagado na alpha.25, a pedido do Gabriel.) Ver
+  [Animacoes.md](Animacoes.md).
 
 **Regra de trabalho (13/09)**: pedido que saia do plano principal vai para um `.md` por
 assunto nesta pasta e NAO e implementado na hora. O plano segue fase a fase; ao fechar o
 plano, os `.md` viram a lista de refinamento.
+
+**Regra (15/09)**: nenhum comando de Studio, importador ou scaffolding no pacote. Nada cria,
+importa ou edita instancia; o Gabriel monta modelo, attachments, juntas, KeyframeSequences e
+sons a mao e o codigo so le. Quando uma feature precisar de asset, documentar o formato no
+README e deixar o loader tolerante.
 
 **Fase 2 — escrita (v0.2.0-alpha.1), em teste no Play.** Equipamento (capacete/colete), 5 configs
 do Weapons Kit no loadout padrao, hotbar e barras de armadura no HUD, comandos
@@ -326,7 +346,8 @@ escolhidas: Viethin 1.8 (Extension Packs publicos, so para o jogo) e Quaternius 
 dentro do pacote; pente separado no Blender com `L` + `P`, cores por vertex color bake).
 Backpack (alpha.19), adiantado a pedido do Gabriel: `Systems/Backpack` faz da Tool comum a fonte
 do inventario (ver [Inventario.md](Inventario.md)); spawn sem loadout, configs do Weapons Kit
-removidos, cinco armas Viethin no lugar.
+removidos, cinco armas Viethin no lugar. Comandos `Dev/*` apagados na alpha.24 (regra do
+Gabriel, 15/09).
 
 **Fase 5 — escrita (v0.2.0-alpha.9), em teste no Play.** `ViewmodelController` + `Shared/Spring`:
 clone do rig na camera, arma por Motor6D, sway/bob/recoil, ADS pelo `Sight` (fallback
@@ -344,5 +365,32 @@ clients pelo remote `Ragdoll`; cada client esconde o boneco e monta a propria co
 (`Shared/Ragdoll`, BallSocket por Motor6D, limites em `Settings.Ragdoll.Joints`), fisica
 local, cap `RagdollMaxLive` por qualidade. Em teste no Play.
 
-**Proxima**: resto da Fase 3 (scope, muzzle flash, impactos, cartuchos, Shake, sons), depois o
-codigo da Fase 4 (Animations, slots) e a Fase 6.
+**Fase 4 — escrita (v0.2.0-alpha.25), em teste no Play.** `Shared/Animations`: um set por arma
+equipada, ligado ao Animator do boneco e, em 1a pessoa, ao do viewmodel (o mesmo clip nos dois).
+Slot em loop no Manifest e stance e troca a que estiver tocando (`Relaxed`, `Idle`, `Aim`,
+`Sprint`); o resto e acao por cima (`Reload`, `ReloadEmpty`, `Equip`), com `AdjustSpeed` para
+terminar junto com o timer do config. Prioridade e loop vem do nome do slot, slot ausente e
+ignorado (os bracos voltam para a `Pose`), e no Studio as KeyframeSequences de
+`Assets/Animations` sao registradas na hora. Maquina de estados como decidido em
+[Animacoes.md](Animacoes.md): equipar cai em `Relaxed`, `Keys.Ready` (F) pede `Ready` e volta,
+`Combat` so aceita tiro e mira em `Ready`, reload vale nos dois e devolve ao mesmo estado;
+remote `Relax`, API `Azazel.SetRelaxed`. Sem pentes extras: o reload e um clip so, nos bracos e
+nas partes da propria arma (decisao do Gabriel em 16/09, ver [Animacoes.md](Animacoes.md)). Com Backpack ligado, a
+track de ferramenta do `Animate` e parada enquanto uma stance toca.
+O que o Gabriel faz a mao: `Assets/Animations/Rifle/{Relaxed,Idle,Aim,Reload}`.
+Bracos so pelo clip (17/09, alpha.26): sairam `Settings.Viewmodel.Offset`, a `Pose` de
+descanso (`WeaponConfig.Defaults.Pose`, `Rig.PoseJoints`), `Ads.SightDistance` e
+`Ads.ViewmodelOffset`. O clone fica no lugar exato do corpo real e, ao mirar, a camera vai ate
+o ponto do `Sight` (`Client.SightOffset`); sem `Sight` fica na cabeca. `ShowBody` desligado por
+padrao (torso e pernas reais somem) e o clone desenha so os bracos. Ver [Miras.md](Miras.md).
+Pedidos do Gabriel em 17/09 (alpha.27): o clip e o timer do reload (`Animations.ClipLength`,
+sem `MatchConfigTime`/`EquipTime`); `Sight`/`Muzzle` valem como Part ou Attachment; HUD sem
+texto no meio da tela, `Reloading...` no lugar da municao; tiro com pente vazio recarrega;
+camera do pacote so armado (`Relaxed` = camera e movimento da Roblox); ombros e pescoco seguem
+o pitch da camera em 3a pessoa, replicado (`LookController`, remotes `Look`/`LookUpdate`).
+Proximo pedido dele: responsividade e controles/botoes para mobile, em [Mobile.md](Mobile.md).
+Sons (alpha.28): `SoundController` toca `Fire` por arma, `ModeSelect` na troca de modo e
+`RemoveMag` + `InsertMag` em sequencia no reload; ver [Sons.md](Sons.md).
+
+**Proxima**: teste no Play das animacoes do FN FNC (1a e 3a pessoa, depois Test com 2
+jogadores), resto da Fase 3 (scope, muzzle flash, impactos, cartuchos, Shake, sons) e a Fase 6.

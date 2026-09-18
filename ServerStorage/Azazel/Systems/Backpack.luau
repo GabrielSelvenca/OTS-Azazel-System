@@ -1,13 +1,17 @@
 --[[
-    Weapons as plain Roblox Tools, on when Settings.Server.UseBackpack is true.
+    Weapons held as Roblox Tools, on when Settings.Server.UseBackpack is true.
 
-    The player's Backpack is the source of truth: any Tool that names a weapon (attribute
-    AzazelWeapon, or its Name equal to a config Name or DisplayName) takes a slot while it is in
-    the Backpack or held by the character, and gives the slot back when it leaves. The Roblox
-    hotbar equips and unequips; Tool.Equipped and Tool.Unequipped drive Inventory.Equip. The
-    Tool never needs a Handle: the weapon the player sees is still the Model on the Motor6D.
-    GiveWeapon, RemoveWeapon, SetLoadout and Equip from the server API go through here so the
-    hotbar always agrees with the state.
+    The package does not own the Backpack. It never creates, destroys, moves or edits a Tool and
+    never equips or unequips anything: the Roblox hotbar does all of that. This only watches what
+    the character holds. A Tool that names a weapon (attribute AzazelWeapon, or a Name equal to a
+    config Name or DisplayName) puts that weapon in the player's hand while it is held and takes
+    it away when it leaves; a Tool that names no weapon is none of its business.
+
+    The slot is bookkeeping (ammo, fire mode, spray) and belongs to the Tool: it is kept while the
+    Tool exists, so putting the weapon away and taking it out again keeps the magazine.
+
+    A Tool with no Handle needs RequiresHandle off to be equipped at all; that is the Tool's own
+    setting, not something the package touches.
 ]]
 
 local Players = game:GetService("Players")
@@ -26,6 +30,12 @@ local WEAPON_ATTRIBUTE = "AzazelWeapon"
 
 local entries = {}
 
+local function log(message: string)
+    if Settings.Debug.LogInventory then
+        print(`[Azazel] Backpack: {message}`)
+    end
+end
+
 local function weaponNameFor(tool: Tool): string?
     local tagged = tool:GetAttribute(WEAPON_ATTRIBUTE)
     if type(tagged) == "string" and WeaponConfig.Exists(tagged) then
@@ -42,225 +52,100 @@ local function weaponNameFor(tool: Tool): string?
     return nil
 end
 
-local function aliveHumanoid(player: Player): Humanoid?
-    local character = player.Character
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    return if humanoid and humanoid.Health > 0 then humanoid else nil
-end
-
-local function stillOwned(player: Player, tool: Tool): boolean
-    local parent = tool.Parent
-    if parent == nil then
-        return false
-    end
-    if parent == player:FindFirstChildOfClass("Backpack") then
-        return true
-    end
-    return parent == player.Character and parent.Parent ~= nil
-end
-
-local function release(player: Player, tool: Tool)
+-- The slot the Tool owns, taken the first time it reaches the hand and given back when the Tool
+-- is destroyed (the Roblox death cleanup, or the game removing it).
+local function slotFor(player: Player, tool: Tool, weaponName: string): number?
     local entry = entries[player]
-    local slot = entry and entry.Tools[tool]
+    if not entry then
+        return nil
+    end
+    local slot = entry.Slots[tool]
+    if slot then
+        return slot
+    end
+    slot = Inventory.GiveWeapon(player, weaponName)
     if not slot then
-        return
+        warn(`[Azazel] No free slot for {weaponName}; {tool:GetFullName()} stays a plain Tool`)
+        return nil
     end
-    entry.Tools[tool] = nil
-    entry.Slots[slot] = nil
-    Inventory.RemoveWeapon(player, slot)
+    entry.Slots[tool] = slot
+    log(`{player.Name} takes {weaponName} in slot {slot} from {tool:GetFullName()}`)
+    entry.Trove:Add(tool.Destroying:Connect(function()
+        if entries[player] ~= entry or entry.Slots[tool] ~= slot then
+            return
+        end
+        entry.Slots[tool] = nil
+        log(`{player.Name} gives slot {slot} back, {tool.Name} is gone`)
+        Inventory.RemoveWeapon(player, slot)
+    end))
+    return slot
 end
 
-local function accept(player: Player, tool: Tool, slot: number?)
-    local entry = entries[player]
-    if not entry or entry.Tools[tool] then
-        return
-    end
+local function onToolHeld(player: Player, tool: Tool)
     local weaponName = weaponNameFor(tool)
     if not weaponName then
         return
     end
-    local index = Inventory.GiveWeapon(player, weaponName, slot)
-    if not index then
-        warn(`[Azazel] No free slot for {weaponName}; {tool:GetFullName()} ignored`)
-        return
-    end
-    local cfg = WeaponConfig.Get(weaponName)
-    tool:SetAttribute(WEAPON_ATTRIBUTE, weaponName)
-    tool.RequiresHandle = false
-    tool.CanBeDropped = false
-    if tool.ToolTip == "" then
-        tool.ToolTip = cfg.DisplayName
-    end
-    entry.Tools[tool] = index
-    entry.Slots[index] = tool
-
-    local trove = entry.Trove:Extend()
-    trove:Connect(tool.Equipped, function()
-        Inventory.Equip(player, index)
-    end)
-    trove:Connect(tool.Unequipped, function()
-        task.defer(function()
-            local character = player.Character
-            local holding = character and character:FindFirstChildOfClass("Tool")
-            if entry.Tools[tool] and Inventory.Get(player) and not holding then
-                Inventory.Equip(player, 0)
-            end
-        end)
-    end)
-    trove:Connect(tool.AncestryChanged, function()
-        if not stillOwned(player, tool) then
-            release(player, tool)
-            entry.Trove:Remove(trove)
-        end
-    end)
-    if tool.Parent == player.Character then
-        Inventory.Equip(player, index)
-    end
-end
-
-local function createTool(cfg): Tool
-    local tool = Instance.new("Tool")
-    tool.Name = cfg.DisplayName
-    tool.ToolTip = cfg.DisplayName
-    tool.RequiresHandle = false
-    tool.CanBeDropped = false
-    tool:SetAttribute(WEAPON_ATTRIBUTE, cfg.Name)
-    return tool
-end
-
-function Backpack.GiveWeapon(player: Player, weaponName: string, slot: number?): number?
-    local entry = entries[player]
-    local cfg = WeaponConfig.Get(weaponName)
-    local container = player:FindFirstChildOfClass("Backpack")
-    if not entry or not cfg or not container then
-        return nil
-    end
-    local tool = createTool(cfg)
-    accept(player, tool, slot)
-    local index = entry.Tools[tool]
-    if not index then
-        tool:Destroy()
-        return nil
-    end
-    tool.Parent = container
-    return index
-end
-
-function Backpack.RemoveWeapon(player: Player, slot: number)
-    local entry = entries[player]
-    local tool = entry and entry.Slots[slot]
-    if tool then
-        release(player, tool)
-        tool:Destroy()
-    end
-end
-
-function Backpack.SetLoadout(player: Player, loadout)
-    local entry = entries[player]
-    if not entry then
-        return
-    end
-    for tool in entry.Tools do
-        release(player, tool)
-        tool:Destroy()
-    end
-    Inventory.SetLoadout(player, { Weapons = {}, Equipment = loadout.Equipment })
-    for _, weaponName in loadout.Weapons or {} do
-        Backpack.GiveWeapon(player, weaponName)
-    end
-end
-
-function Backpack.Equip(player: Player, slot: number)
-    local entry = entries[player]
-    local humanoid = aliveHumanoid(player)
-    if not entry or not humanoid then
+    local slot = slotFor(player, tool, weaponName)
+    if slot then
         Inventory.Equip(player, slot)
-        return
-    end
-    if slot == 0 then
-        humanoid:UnequipTools()
-        return
-    end
-    local tool = entry.Slots[slot]
-    if tool then
-        humanoid:EquipTool(tool)
-    else
-        Inventory.PushState(player)
     end
 end
 
-local function watch(player: Player, container: Instance, trove)
-    for _, child in container:GetChildren() do
-        if child:IsA("Tool") then
-            accept(player, child)
-        end
-    end
-    trove:Connect(container.ChildAdded, function(child)
-        if child:IsA("Tool") then
-            accept(player, child)
-        end
-    end)
-end
-
-local function swapTrove(entry, key: string)
-    if entry[key] then
-        entry.Trove:Remove(entry[key])
-    end
-    entry[key] = entry.Trove:Extend()
-    return entry[key]
-end
-
-local function onCharacterAdded(player: Player, character: Model)
+-- Swapping weapons unequips the old Tool before the new one arrives, so the hand is empty for a
+-- moment; only a slot that is still the equipped one on the next step really left the hand.
+local function onToolDropped(player: Player, tool: Tool)
     local entry = entries[player]
-    if not entry then
+    local slot = entry and entry.Slots[tool]
+    if not slot then
         return
     end
-    watch(player, character, swapTrove(entry, "CharacterTrove"))
     task.defer(function()
-        if entries[player] ~= entry then
+        local state = Inventory.Get(player)
+        if entries[player] ~= entry or not state or state.EquippedSlot ~= slot then
             return
         end
-        if Settings.Server.GiveDefaultLoadoutOnSpawn and next(entry.Tools) == nil then
-            Backpack.SetLoadout(player, Settings.Server.DefaultLoadout)
+        if tool.Parent == player.Character then
+            return
         end
-        local autoSlot = Settings.Server.AutoEquipSlot
-        local tool = autoSlot and entry.Slots[autoSlot]
-        local humanoid = aliveHumanoid(player)
-        if tool and humanoid then
-            humanoid:EquipTool(tool)
+        Inventory.Equip(player, 0)
+    end)
+end
+
+local function watchCharacter(player: Player, character: Model, trove)
+    for _, child in character:GetChildren() do
+        if child:IsA("Tool") then
+            onToolHeld(player, child)
+        end
+    end
+    trove:Connect(character.ChildAdded, function(child)
+        if child:IsA("Tool") then
+            onToolHeld(player, child)
+        end
+    end)
+    trove:Connect(character.ChildRemoved, function(child)
+        if child:IsA("Tool") then
+            onToolDropped(player, child)
         end
     end)
 end
 
 local function addPlayer(player: Player)
     local trove = Trove.new()
-    local entry = { Tools = {}, Slots = {}, Trove = trove }
+    local entry = { Slots = {}, Trove = trove }
     entries[player] = entry
-    local container = player:FindFirstChildOfClass("Backpack")
-    if container then
-        watch(player, container, swapTrove(entry, "BackpackTrove"))
-    end
-    trove:Connect(player.ChildAdded, function(child)
-        if child:IsA("Backpack") then
-            watch(player, child, swapTrove(entry, "BackpackTrove"))
-        end
-    end)
-    trove:Connect(player.CharacterAdded, function(character)
-        onCharacterAdded(player, character)
-    end)
-    trove:Connect(player.CharacterRemoving, function(character)
-        for tool in entry.Tools do
-            if tool.Parent == character then
-                release(player, tool)
-            end
-        end
+
+    local function onCharacter(character: Model)
         if entry.CharacterTrove then
-            entry.Trove:Remove(entry.CharacterTrove)
-            entry.CharacterTrove = nil
+            trove:Remove(entry.CharacterTrove)
         end
-    end)
+        entry.CharacterTrove = trove:Extend()
+        watchCharacter(player, character, entry.CharacterTrove)
+    end
+
+    trove:Connect(player.CharacterAdded, onCharacter)
     if player.Character then
-        onCharacterAdded(player, player.Character)
+        onCharacter(player.Character)
     end
 end
 
@@ -268,7 +153,7 @@ function Backpack.Start()
     if not Settings.Server.UseBackpack then
         return
     end
-    Inventory.EquipRouter = Backpack.Equip
+    log(`watching held Tools, {Settings.Server.MaxSlots} slots`)
     Players.PlayerAdded:Connect(addPlayer)
     for _, player in Players:GetPlayers() do
         addPlayer(player)

@@ -2,6 +2,11 @@ local Rig = {}
 
 Rig.Attribute = "AzazelRig"
 
+-- FirstPersonHidden: real character parts hidden in first person; the viewmodel shows the ones
+-- it keeps from that list and hides the rest of its clone.
+-- WeaponJoints: last resort for a rig joint of a weapon model whose Part0 was lost and whose
+-- Motor6D is not named after a body part (WeaponModel.Attach). HandOffset is only for a model
+-- with no joint to the character at all.
 Rig.R6 = {
     Name = "R6",
     Root = "HumanoidRootPart",
@@ -10,9 +15,11 @@ Rig.R6 = {
     Hand = "Right Arm",
     OffHand = "Left Arm",
     HandOffset = CFrame.new(0, -1, 0),
+    WeaponJoints = { Handle = "Right Arm" },
     ViewmodelKeep = { "HumanoidRootPart", "Torso", "Left Arm", "Right Arm" },
     ViewmodelJoints = { "RootJoint", "Left Shoulder", "Right Shoulder" },
-    PoseJoints = { RightArm = "Right Shoulder", LeftArm = "Left Shoulder" },
+    FirstPersonHidden = { "Head", "Left Arm", "Right Arm" },
+    LookJoints = { "Right Shoulder", "Left Shoulder", "Neck" },
     Zones = {
         Head = "Head",
         Torso = "Torso",
@@ -33,9 +40,11 @@ Rig.R15 = {
     Hand = "RightHand",
     OffHand = "LeftHand",
     HandOffset = CFrame.new(0, -0.15, 0),
+    WeaponJoints = { Handle = "RightHand" },
     ViewmodelKeep = { "HumanoidRootPart", "UpperTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand" },
     ViewmodelJoints = { "Root", "Waist", "LeftShoulder", "LeftElbow", "LeftWrist", "RightShoulder", "RightElbow", "RightWrist" },
-    PoseJoints = { RightArm = "RightShoulder", LeftArm = "LeftShoulder" },
+    FirstPersonHidden = { "Head", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand" },
+    LookJoints = { "RightShoulder", "LeftShoulder", "Neck" },
     Zones = {
         Head = "Head",
         UpperTorso = "Torso",

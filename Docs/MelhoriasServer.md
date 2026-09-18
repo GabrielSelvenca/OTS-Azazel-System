@@ -8,12 +8,13 @@ fora do plano, salvo o marcado como feito.
 - Dano por distancia e uma curva calculada (`Shared/Damage.luau`): `FalloffStart`, `FalloffEnd`,
   `FalloffMultiplier`, `FalloffCurve` (expoente) e clamp `Min`/`Max` por tiro. Classes ordenadas
   por quanto mantem de longe: Shotgun < Pistol < SMG < Rifle < Sniper, cada uma com seu `Range`.
-  `Dev.Commands.PrintFalloff()` imprime a tabela comparativa; `PrintFalloff(nome, passo, zona)`
-  imprime CSV para grafico (alpha.8). Dano por arma especifica: basta sobrescrever `Damage` no
-  modulo da arma; por decisao, hoje so as classes definem.
+  `Damage.Curve(cfg, passo, zona)` devolve os pontos para grafico (o `PrintFalloff` saiu com os
+  comandos na alpha.24). Dano por arma especifica: basta sobrescrever `Damage` na entrada da
+  arma; por decisao, hoje so as classes definem.
 - (antes) `Damage.FalloffStart`, `FalloffEnd` e `FalloffMultiplier` por arma
   (interpolacao linear entre inicio e fim, aplicado antes das zonas e da armadura em `Combat`).
-- `Dev.SpawnDummy` renasce o dummy 3 s depois de morrer, no mesmo lugar; `Dev.ClearDummies` remove todos.
+- Dummies de teste: R6 do Rig Builder colocados a mao no mapa (o `SpawnDummy` saiu com os
+  comandos na alpha.24).
 - `Settings.Debug.ServerTracers`: no Studio, o servidor desenha uma linha vermelha por tiro do
   cano ate o ponto de impacto, para a tela Server mostrar onde a bala foi. Nunca roda em jogo
   publicado (alpha.9).

@@ -15,9 +15,14 @@ local Inventory = {}
 
 Inventory.WeaponEquipped = Signal.new()
 Inventory.EquipmentChanged = Signal.new()
-Inventory.EquipRouter = nil
 
 local states = {}
+
+local function log(message: string)
+    if Settings.Debug.LogInventory then
+        print(`[Azazel] Inventory: {message}`)
+    end
+end
 
 local function newSlot(cfg)
     return {
@@ -89,6 +94,7 @@ function Inventory.Snapshot(player: Player)
         Magazine = cfg and cfg.Magazine or 0,
         FireMode = slot and slot.FireModeIndex or 1,
         EquipState = state.EquipState,
+        Armed = state.EquipState == "Ready" or (state.EquipState == "Reloading" and state.ReloadFrom == "Ready"),
         Equipment = equipmentSnapshot(state),
     }
 end
@@ -108,6 +114,24 @@ end
 local function setEquipState(state, equipState: string)
     state.EquipState = equipState
     Inventory.PushState(state.Player)
+end
+
+-- Drawing a weapon lands on Relaxed (in the hand, lowered): no aiming, no firing. The ready
+-- key asks for Ready, which is the only state Combat accepts a shot in.
+function Inventory.SetRelaxed(player: Player, relaxed: boolean)
+    local state = states[player]
+    if not state or not Inventory.GetSlot(state) then
+        return
+    end
+    local current = state.EquipState
+    if current ~= "Relaxed" and current ~= "Ready" then
+        return
+    end
+    local target = if relaxed then "Relaxed" else "Ready"
+    if current == target then
+        return
+    end
+    setEquipState(state, target)
 end
 
 local function rebuildModifiers(state)
@@ -256,7 +280,7 @@ function Inventory.Equip(player: Player, slot: number)
         return
     end
     local character = player.Character
-    local generation = Inventory.Bump(state)
+    Inventory.Bump(state)
     local target = state.Slots[slot]
     if slot ~= 0 and not target then
         Inventory.PushState(player)
@@ -264,6 +288,7 @@ function Inventory.Equip(player: Player, slot: number)
     end
     state.EquippedSlot = slot
     state.Config = nil
+    log(`{player.Name} equip slot {slot} ({if target then target.Name else "nothing"})`)
     if not target then
         if character then
             CharacterRig.Detach(character)
@@ -278,18 +303,14 @@ function Inventory.Equip(player: Player, slot: number)
     if character and CharacterRig.IsAlive(character) then
         CharacterRig.Attach(character, cfg)
     end
-    setEquipState(state, "Equipping")
+    -- Drawing is instant: there is no Equipping state. A weapon comes out Relaxed, and the
+    -- ready key is the only thing between it and a shot, so nothing is gained by a timer.
+    setEquipState(state, "Relaxed")
     Inventory.WeaponEquipped:Fire(player, cfg)
-    task.delay(cfg.EquipTime, function()
-        if states[player] ~= state or state.Generation ~= generation then
-            return
-        end
-        setEquipState(state, "Ready")
-    end)
 end
 
 function Inventory.RequestEquip(player: Player, slot: number)
-    (Inventory.EquipRouter or Inventory.Equip)(player, slot)
+    Inventory.Equip(player, slot)
 end
 
 local function onCharacterAdded(player: Player)
@@ -297,8 +318,18 @@ local function onCharacterAdded(player: Player)
     if not state then
         return
     end
+    -- With the Backpack on, what the player holds is the Tool they equipped: the spawn loadout
+    -- and the auto equip are not this mode's business, and Systems/Backpack reacts to the Tool.
     if Settings.Server.UseBackpack then
-        Inventory.Equip(player, 0)
+        for _, slot in state.Slots do
+            slot.Accuracy = Accuracy.NewState()
+        end
+        local character = player.Character
+        if character and character:FindFirstChildOfClass("Tool") then
+            Inventory.PushState(player)
+        else
+            Inventory.Equip(player, 0)
+        end
         return
     end
     local hasWeapons = next(state.Slots) ~= nil
@@ -348,6 +379,13 @@ function Inventory.Start()
             state.Ready = true
             Inventory.PushState(player)
         end
+    end)
+
+    Remotes.OnServer("Relax", function(player, relaxed)
+        if not CharacterRig.IsAlive(player.Character) then
+            return
+        end
+        Inventory.SetRelaxed(player, relaxed)
     end)
 
     Remotes.OnServer("Equip", function(player, slot)

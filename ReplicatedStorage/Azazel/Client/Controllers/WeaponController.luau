@@ -5,11 +5,13 @@ local Client = require(script.Parent.Parent)
 local package = script.Parent.Parent.Parent
 local WeaponConfig = require(package.Config.WeaponConfig)
 local Accuracy = require(package.Shared.Accuracy)
+local Animations = require(package.Shared.Animations)
 local Remotes = require(package.Shared.Remotes)
 local Rig = require(package.Shared.Rig)
 local WeaponModel = require(package.Shared.WeaponModel)
-local ShotDebug = require(package.Dev.ShotDebug)
+local ShotDebug = require(script.Parent.Parent.ShotDebug)
 local CameraController = require(script.Parent.CameraController)
+local ViewmodelController = require(script.Parent.ViewmodelController)
 
 local WeaponController = {}
 
@@ -17,6 +19,7 @@ local Signals = Client.Signals
 local localPlayer = Players.LocalPlayer
 
 local AIM_DOT_MIN = 0.5
+local RELOAD_REQUEST_TIMEOUT = 1 -- seconds the trigger stays locked waiting for the server to answer a reload
 local SPRAY_EPSILON = 0.005
 
 local ammo = 0
@@ -26,9 +29,16 @@ local firing = false
 local semiLatch = false
 local burstRemaining = 0
 local nextShotAt = 0
+local reloadRequested = false
+local reloadRequestId = 0
 local seq = 0
 local lastCone = -1
 local rng = Random.new()
+local animationSet = nil
+local boundCharacterAnimator: Animator? = nil
+local boundViewmodelAnimator: Animator? = nil
+local reloadStance = "Idle"
+local sprinting = false
 
 local function cfg()
     return Client.Config
@@ -51,6 +61,128 @@ local function currentFireMode(): string?
         return nil
     end
     return config.FireModes[state.FireMode] or config.FireModes[1]
+end
+
+local function characterAnimator(): Animator?
+    local model = character()
+    local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+    return humanoid and humanoid:FindFirstChildOfClass("Animator")
+end
+
+local function destroyAnimations()
+    if animationSet then
+        animationSet:Destroy()
+        animationSet = nil
+    end
+    boundCharacterAnimator = nil
+    boundViewmodelAnimator = nil
+end
+
+local function buildAnimations(config)
+    destroyAnimations()
+    if config then
+        animationSet = Animations.NewSet(config)
+    end
+end
+
+-- The viewmodel is rebuilt on every view and weapon change and the character on every spawn,
+-- so the set follows whatever Animator is there now instead of trusting a start order.
+local function syncAnimators()
+    if not animationSet then
+        return
+    end
+    local own = characterAnimator()
+    if own ~= boundCharacterAnimator then
+        animationSet:Unbind(boundCharacterAnimator)
+        animationSet:Bind(own)
+        boundCharacterAnimator = own
+    end
+    local viewmodel = ViewmodelController.GetAnimator()
+    if viewmodel ~= boundViewmodelAnimator then
+        animationSet:Unbind(boundViewmodelAnimator)
+        animationSet:Bind(viewmodel)
+        boundViewmodelAnimator = viewmodel
+    end
+end
+
+local function desiredStance(): string?
+    local state = Client.State
+    local set = animationSet
+    if not set or not state or not isAlive() then
+        return nil
+    end
+    local equipState = state.EquipState
+    if equipState == "Holstered" then
+        return nil
+    elseif equipState == "Reloading" then
+        return reloadStance
+    elseif equipState ~= "Ready" then
+        return "Relaxed"
+    elseif Client.Aiming then
+        return set:Pick("Aim", "Idle")
+    elseif sprinting then
+        return set:Pick("Sprint", "Idle")
+    end
+    return "Idle"
+end
+
+local function refreshStance()
+    local set = animationSet
+    if not set then
+        return
+    end
+    local stance = desiredStance()
+    if stance and set:Has(stance) then
+        set:Play(stance)
+    elseif set.Stance then
+        set:StopAll()
+    end
+end
+
+local function playReload(state)
+    local set = animationSet
+    local config = cfg()
+    if not set or not config then
+        return
+    end
+    local empty = state.Ammo <= 0
+    set:Play(if empty then set:Pick("ReloadEmpty", "Reload") else set:Pick("Reload"))
+end
+
+-- Asks for a reload when one makes sense: something missing and somewhere to take it from.
+local function requestReload()
+    local config = cfg()
+    if not config or not Client.IsHolding() or not isAlive() then
+        return
+    end
+    if ammo >= config.Magazine or reserve <= 0 then
+        return
+    end
+    -- The shots already sent count; from here on the trigger does nothing until the server
+    -- answers, so no shot leaves after the reload request and gets rejected behind it.
+    reloadRequested = true
+    firing = false
+    burstRemaining = 0
+    semiLatch = false
+    reloadRequestId += 1
+    local id = reloadRequestId
+    task.delay(RELOAD_REQUEST_TIMEOUT, function()
+        if reloadRequestId == id then
+            reloadRequested = false
+        end
+    end)
+    Remotes.FireServer("Reload")
+end
+
+local function setAiming(aiming: boolean)
+    if Client.Aiming == aiming then
+        return
+    end
+    Client.Aiming = aiming
+    accuracyState.AimStartedAt = if aiming then os.clock() else nil
+    Signals.AimChanged:Fire(aiming)
+    Remotes.FireServer("Aim", aiming)
+    refreshStance()
 end
 
 local function raycastParams(): RaycastParams
@@ -99,7 +231,7 @@ local function debugShot(info)
         ShotDebug.Point(info.Muzzle, colors.Muzzle, nil, 0.25)
     end
     ShotDebug.Log(string.format(
-        "[Azazel:Shot] #%d %s%s\n  camera=%s look=%s\n  aimHit=%s aimTarget=%s aimDist=%.1f\n  head=%s dir=%s dot=%.3f angleFromLook=%.2f fallback=%s cone=%.2f\n  muzzle=%s muzzleToHead=%.2f\n%s",
+        "[Azazel:Shot] #%d %s%s\n  camera=%s look=%s\n  aimHit=%s aimTarget=%s aimDist=%.1f\n  head=%s dir=%s dot=%.3f angleFromLook=%.2f fallback=%s cone=%.2f\n  muzzle=%s muzzleToHead=%.2f muzzleSource=%s\n%s",
         info.Seq,
         info.Weapon,
         if anomaly then "  <-- ANOMALY" else "",
@@ -116,12 +248,13 @@ local function debugShot(info)
         info.Cone,
         if info.Muzzle then ShotDebug.Vector(info.Muzzle) else "none",
         if info.Muzzle then (info.Muzzle - info.Origin).Magnitude else -1,
+        info.MuzzleSource,
         table.concat(pelletLines, "\n")
     ))
 end
 
 local function available(): boolean
-    return Client.IsReady() and ammo > 0 and isAlive()
+    return Client.IsReady() and ammo > 0 and isAlive() and not reloadRequested
 end
 
 local function canFire(): boolean
@@ -171,6 +304,7 @@ local function shoot()
         ends[pellet] = if result then result.Position else origin + visual * config.Range
         pellets[pellet] = { Direction = visual, End = ends[pellet], Hit = result and result.Instance }
     end
+    local muzzlePoint, muzzleSource = WeaponModel.FindPoint(Client.ViewmodelWeapon or WeaponModel.Find(model), "Muzzle")
     debugShot({
         Seq = seq,
         Weapon = config.Name,
@@ -184,7 +318,8 @@ local function shoot()
         Fallback = fallback,
         Cone = cone,
         PelletSpread = config.Pellets.Spread,
-        Muzzle = WeaponModel.MuzzlePosition(WeaponModel.Find(model)),
+        Muzzle = muzzlePoint and muzzlePoint.Position or nil,
+        MuzzleSource = if muzzleSource then `{muzzleSource.ClassName} {muzzleSource:GetFullName()}` else "none (Handle center fallback)",
         Pellets = pellets,
     })
     Signals.LocalShot:Fire(origin, ends, config)
@@ -193,6 +328,8 @@ local function shoot()
 end
 
 local function heartbeat()
+    syncAnimators()
+    refreshStance()
     local config = cfg()
     if not config then
         return
@@ -239,7 +376,9 @@ end
 local function applyState(state)
     local previous = Client.State
     local previousWeapon = previous and previous.Weapon
+    local previousEquipState = previous and previous.EquipState
     Client.State = state
+    reloadRequested = false
     local config = if state.Weapon then WeaponConfig.Get(state.Weapon) else nil
     Client.Config = config
     ammo = state.Ammo
@@ -248,8 +387,24 @@ local function applyState(state)
         accuracyState = Accuracy.NewState()
         burstRemaining = 0
         semiLatch = false
+        buildAnimations(config)
         Signals.WeaponChanged:Fire(config)
     end
+    if state.EquipState ~= "Ready" and Client.Aiming then
+        setAiming(false)
+    end
+    -- Drawing is instant; the optional Equip clip plays over the Relaxed stance it lands on.
+    if state.EquipState == "Relaxed" and previousEquipState ~= "Relaxed" and previousEquipState ~= "Reloading" and animationSet then
+        syncAnimators()
+        animationSet:Play("Equip")
+    end
+    if state.EquipState == "Reloading" and previousEquipState ~= "Reloading" then
+        reloadStance = if previousEquipState == "Relaxed" then "Relaxed" else "Idle"
+        syncAnimators()
+        playReload(state)
+    end
+    syncAnimators()
+    refreshStance()
     Signals.AmmoChanged:Fire(ammo, reserve, state.Magazine)
     Signals.StateChanged:Fire(state)
 end
@@ -280,6 +435,10 @@ function WeaponController.Start()
             return
         end
         if not canFire() then
+            -- The trigger on a dry magazine is the reload.
+            if ammo <= 0 and Client.IsReady() then
+                requestReload()
+            end
             return
         end
         firing = true
@@ -291,29 +450,32 @@ function WeaponController.Start()
     end)
 
     Signals.AimInput:Connect(function(pressed)
-        if Client.Aiming == pressed then
+        if pressed and not Client.IsReady() then
             return
         end
-        Client.Aiming = pressed
-        if pressed then
-            accuracyState.AimStartedAt = os.clock()
-        else
-            accuracyState.AimStartedAt = nil
-        end
-        Signals.AimChanged:Fire(pressed)
-        Remotes.FireServer("Aim", pressed)
+        setAiming(pressed)
     end)
 
-    Signals.ReloadInput:Connect(function()
-        local config = cfg()
-        if not config or not Client.IsReady() then
+    -- The ready key arms the weapon and lowers it again. Relaxed holds no aim and no shot;
+    -- the server is the one that changes the state, this only asks.
+    Signals.ReadyInput:Connect(function()
+        local state = Client.State
+        if not state or not isAlive() or not Client.IsHolding() then
             return
         end
-        if ammo >= config.Magazine or reserve <= 0 then
-            return
+        local relaxed = state.EquipState == "Ready"
+        if relaxed then
+            setAiming(false)
         end
-        Remotes.FireServer("Reload")
+        Remotes.FireServer("Relax", relaxed)
     end)
+
+    Signals.SprintInput:Connect(function(pressed)
+        sprinting = pressed
+        refreshStance()
+    end)
+
+    Signals.ReloadInput:Connect(requestReload)
 
     Signals.SlotInput:Connect(function(slot)
         local state = Client.State
@@ -340,6 +502,7 @@ function WeaponController.Start()
     end)
 
     RunService.Heartbeat:Connect(heartbeat)
+    task.spawn(Animations.Preload)
     task.defer(Remotes.FireServer, "Ready")
 end
 

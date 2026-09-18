@@ -107,14 +107,19 @@ local function onRagdoll(character: Instance, hitPartName: string, direction: Ve
     table.insert(live, ragdoll)
     ragdoll.Parent = effectsFolder()
 
+    -- The whole body moves along the shot and the part that took the killing hit a bit more,
+    -- so a chest shot from the front throws the body onto its back. Pushing the torso alone
+    -- slides it out from under the head, and the body tips toward the shooter instead.
+    local push = if typeof(direction) == "Vector3" and direction.Magnitude > 0 then direction.Unit else Vector3.zero
+    local body = inherited + push * RagdollSettings.BodyImpulse
     for _, child in ragdoll:GetChildren() do
         if child:IsA("BasePart") then
-            child.AssemblyLinearVelocity = inherited
+            child.AssemblyLinearVelocity = body
         end
     end
     local hitPart = ragdoll:FindFirstChild(hitPartName) or ragdoll.PrimaryPart
-    if hitPart and hitPart:IsA("BasePart") and typeof(direction) == "Vector3" and direction.Magnitude > 0 then
-        hitPart:ApplyImpulse(direction.Unit * RagdollSettings.Impulse * hitPart.AssemblyMass)
+    if hitPart and hitPart:IsA("BasePart") then
+        hitPart.AssemblyLinearVelocity = body + push * RagdollSettings.Impulse
     end
     scheduleRemoval(ragdoll)
 end

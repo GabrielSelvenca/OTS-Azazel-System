@@ -1,6 +1,6 @@
 --[[
     Damage by distance. Pure math shared by the server (the only one that applies it) and by
-    tools that draw the curve (Dev.Commands.PrintFalloff).
+    anything that wants to draw the curve (Damage.Curve).
 
     Fields read from cfg.Damage:
       Base                damage of one bullet or pellet at point blank

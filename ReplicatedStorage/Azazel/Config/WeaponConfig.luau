@@ -1,34 +1,37 @@
 --[[
     Weapon configuration.
 
-    A weapon is a module under Config/Weapons that returns a table with at least Name and Class.
+    Every weapon is an entry in Config/Weapons.luau, keyed by its name, with at least Class.
     WeaponConfig.Get(name) merges three layers, later ones winning field by field:
-    Defaults <- Classes[Class] <- the weapon module. So a weapon only lists what differs from
-    its class, and a class only what differs from Defaults. The result is frozen; ShotInterval
-    and BurstInterval are derived from Rpm.
+    Defaults <- Classes[Class] <- the weapon entry. So a weapon only lists what differs from
+    its class, and a class only what differs from Defaults. Name is the key. The result is
+    frozen; ShotInterval and BurstInterval are derived from Rpm.
 
-    Fields (Defaults below shows every one with its default value):
-      Grip            C1 of the Motor6D that holds the Handle (the hand seen from the Handle, same
-                      meaning as Tool.Grip); copy it from a rig's Motor6D or tune with Dev.PrintGrip
-      Pose            rest pose of the arms while no animation plays (first person): per arm,
-                      degrees in torso space; Pitch raises the arm forward, Yaw swings it toward
-                      the center (positive for the right arm, negative for the left), Roll twists
+    Fields (Defaults below shows every one with its default value). How the weapon sits in the
+    hand and where the arms are is not here: the Motor6D that holds the Handle ships inside the
+    weapon model, copied from the animation rig (see README, "The grip"), and the arms are the
+    animation clips alone.
       FireModes       list of "Auto" | "Semi" | "Burst"; the first is the default
       Rpm, Burst      rounds per minute; Burst.Count shots per press at Burst.Rpm
-      Magazine, Reserve, Reload{Time, EmptyTime}, EquipTime   seconds
+      Magazine, Reserve, Reload{Time, EmptyTime}   the reload times, in seconds, count only
+                      for a weapon with no Reload clip: the clip is the timer (Shared/Animations)
       Range           raycast length in studs (capped by Settings.Server.MaxRange)
       Damage          Base * Zones[zone] * falloff, clamped to [Min, Max]; falloff is 1 until
                       FalloffStart, eases with FalloffCurve to FalloffMultiplier at FalloffEnd
-                      (see Shared/Damage). Dev.Commands.PrintFalloff() prints the curve
+                      (see Shared/Damage; Damage.Curve returns the points)
       Accuracy        cone in degrees: Base * stance * (aim or hip multiplier) + spray;
                       spray grows PerShot up to Max and drains after RecoveryDelay over RecoveryTime
       Pellets         Count per shot and extra Spread per pellet (shotguns)
-      Recoil          Camera kick in degrees, Viewmodel kick for first person
-      Ads             aim down sights: Fov, camera Distance, Shoulder, Time to settle, AimTime
-                      before the accuracy bonus applies, Scope overlay
+      Recoil          Camera kick in degrees (Pitch up, Yaw either way) and its Recovery; the
+                      shot moves nothing else, in first person the arms stay with the camera
+      Ads             aim down sights: Fov, camera Distance and Shoulder (third person), Time to
+                      settle, AimTime before the accuracy bonus applies, Scope overlay. In first
+                      person the camera moves onto the model's Sight attachment
       Effects         MuzzleFlash / Impact / Casing asset names and Tracer overrides
                       (defaults in Settings.Effects.Tracer)
-      Sounds          slot -> sound asset name; Animations slot -> published animation id
+      Sounds          slot -> name of a child of Assets/Sounds to use instead of the weapon's
+                      folder or the shared one (see README, "Sounds"); Animations slot ->
+                      published animation id
 ]]
 
 local Settings = require(script.Parent.Settings)
@@ -36,24 +39,17 @@ local Settings = require(script.Parent.Settings)
 local WeaponConfig = {}
 
 local TracerDefaults = Settings.Effects.Tracer
-local DEFAULT_GRIP = CFrame.Angles(math.pi / 2, 0, 0)
 
 WeaponConfig.ClassOrder = { "Pistol", "SMG", "Rifle", "Shotgun", "Sniper" }
 WeaponConfig.FireModes = { "Auto", "Semi", "Burst" }
 
 WeaponConfig.Defaults = {
-    Grip = DEFAULT_GRIP,
-    Pose = {
-        RightArm = { Pitch = 80, Yaw = 12, Roll = 0 },
-        LeftArm = { Pitch = 84, Yaw = -42, Roll = 0 },
-    },
     FireModes = { "Semi" },
     Rpm = 400,
     Burst = { Count = 3, Rpm = 900 },
     Magazine = 12,
     Reserve = 48,
     Reload = { Mode = "Magazine", Time = 2.0, EmptyTime = 2.4 },
-    EquipTime = 0.5,
     Range = 800,
     Damage = {
         Base = 25,
@@ -78,7 +74,6 @@ WeaponConfig.Defaults = {
     Pellets = { Count = 1, Spread = 0 },
     Recoil = {
         Camera = { Pitch = 1, Yaw = 0.3, Recovery = 0.5 },
-        Viewmodel = { Kick = 0.1, Rise = 3, Damping = 0.6, Frequency = 12 },
     },
     Ads = {
         Fov = 60,
@@ -87,8 +82,6 @@ WeaponConfig.Defaults = {
         Time = 0.15,
         AimTime = 0.12,
         Scope = false,
-        SightDistance = 0.3,
-        ViewmodelOffset = CFrame.new(-0.6, 0.45, 0),
     },
     Sprint = { Allowed = true, AccuracyMultiplier = 1 },
     Effects = {
@@ -119,7 +112,6 @@ WeaponConfig.Classes = {
         Magazine = 15,
         Reserve = 60,
         Reload = { Time = 1.6, EmptyTime = 1.9 },
-        EquipTime = 0.35,
         Range = 400,
         Damage = { Base = 26, FalloffStart = 40, FalloffEnd = 220, FalloffMultiplier = 0.45, FalloffCurve = 1, Zones = { Head = 3.5 } },
         Accuracy = { Base = 0.35, PerShot = 0.35, Max = 2.5, RecoveryTime = 0.35 },
@@ -133,7 +125,6 @@ WeaponConfig.Classes = {
         Magazine = 30,
         Reserve = 120,
         Reload = { Time = 2.1, EmptyTime = 2.5 },
-        EquipTime = 0.45,
         Range = 550,
         Damage = { Base = 20, FalloffStart = 60, FalloffEnd = 320, FalloffMultiplier = 0.5, FalloffCurve = 1.2 },
         Accuracy = { Base = 0.6, PerShot = 0.18, Max = 3.0, RecoveryTime = 0.4 },
@@ -147,7 +138,6 @@ WeaponConfig.Classes = {
         Magazine = 30,
         Reserve = 90,
         Reload = { Time = 2.4, EmptyTime = 3.0 },
-        EquipTime = 0.6,
         Range = 1100,
         Damage = { Base = 33, FalloffStart = 180, FalloffEnd = 750, FalloffMultiplier = 0.65, FalloffCurve = 1.5, Zones = { Head = 4 } },
         Accuracy = { Base = 0.3, PerShot = 0.28, Max = 3.2, RecoveryTime = 0.45 },
@@ -161,7 +151,6 @@ WeaponConfig.Classes = {
         Magazine = 6,
         Reserve = 24,
         Reload = { Time = 3.2, EmptyTime = 3.6 },
-        EquipTime = 0.7,
         Range = 150,
         Damage = { Base = 12, FalloffStart = 15, FalloffEnd = 90, FalloffMultiplier = 0.2, FalloffCurve = 0.8, Zones = { Head = 2 } },
         Accuracy = { Base = 1.0, PerShot = 0.5, Max = 2, RecoveryTime = 0.6 },
@@ -176,7 +165,6 @@ WeaponConfig.Classes = {
         Magazine = 5,
         Reserve = 20,
         Reload = { Time = 3.5, EmptyTime = 3.9 },
-        EquipTime = 0.8,
         Range = 2500,
         Damage = { Base = 95, FalloffStart = 600, FalloffEnd = 2000, FalloffMultiplier = 0.85, FalloffCurve = 2, Zones = { Head = 2.5 } },
         Accuracy = { Base = 0.02, HipMultiplier = 40, AimMultiplier = 1, PerShot = 1.0, Max = 3, RecoveryTime = 0.8 },
@@ -227,23 +215,8 @@ local function deepFreeze(value)
     return table.freeze(value)
 end
 
-local weaponModules = {}
+local Weapons = require(script.Parent.Weapons)
 local cache = {}
-
-local function scanWeapons()
-    table.clear(weaponModules)
-    for _, module in script.Parent.Weapons:GetChildren() do
-        if module:IsA("ModuleScript") then
-            weaponModules[module.Name] = module
-        end
-    end
-end
-
-local function ensureScanned()
-    if next(weaponModules) == nil then
-        scanWeapons()
-    end
-end
 
 local function derive(cfg)
     cfg.ShotInterval = 60 / math.max(cfg.Rpm, 1)
@@ -254,8 +227,7 @@ local function derive(cfg)
 end
 
 function WeaponConfig.Exists(name: string): boolean
-    ensureScanned()
-    return weaponModules[name] ~= nil
+    return type(Weapons[name]) == "table"
 end
 
 function WeaponConfig.Get(name: string)
@@ -263,25 +235,24 @@ function WeaponConfig.Get(name: string)
     if cached then
         return cached
     end
-    ensureScanned()
-    local module = weaponModules[name]
-    if not module then
+    local raw = Weapons[name]
+    if type(raw) ~= "table" then
         return nil
     end
-    local raw = require(module)
-    assert(type(raw) == "table" and raw.Name == name, `[Azazel] Weapon module {name} must return a table with Name = "{name}"`)
     local classDefaults = WeaponConfig.Classes[raw.Class]
     assert(classDefaults, `[Azazel] Weapon {name} has unknown Class {tostring(raw.Class)}`)
     local merged = deepMerge(deepMerge(WeaponConfig.Defaults, classDefaults), raw)
+    merged.Name = name
     cache[name] = deepFreeze(derive(merged))
     return cache[name]
 end
 
 function WeaponConfig.All(): { string }
-    ensureScanned()
     local names = {}
-    for name in weaponModules do
-        table.insert(names, name)
+    for name, entry in Weapons do
+        if type(entry) == "table" then
+            table.insert(names, name)
+        end
     end
     table.sort(names)
     return names

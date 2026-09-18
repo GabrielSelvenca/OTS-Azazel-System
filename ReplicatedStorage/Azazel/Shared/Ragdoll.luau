@@ -2,7 +2,10 @@
     Builds a ragdoll copy of a character: clone, drop the root and scripts, swap every limb
     Motor6D for a BallSocketConstraint with the limits from Settings.Ragdoll.Joints. The copy is
     plain parts plus a dead Humanoid (kept so clothing renders), so whoever parents it owns its
-    physics. The client builds one per death locally; nothing here replicates.
+    physics. A Humanoid keeps its limbs from colliding, dead or not, so every part carries an
+    invisible collider welded to it (ColliderScale of its size) that does the colliding instead;
+    that is what keeps the body on the floor. The client builds one per death locally; nothing
+    here replicates.
 ]]
 
 local Settings = require(script.Parent.Parent.Config.Settings)
@@ -25,7 +28,17 @@ local function isLimbJoint(joint: Instance, clone: Model): boolean
     return part0 ~= nil and part1 ~= nil and part0.Parent == clone and part1.Parent == clone
 end
 
-local function socketFor(motor: Motor6D)
+local function noCollision(a: BasePart?, b: BasePart?, parent: Instance)
+    if not a or not b then
+        return
+    end
+    local constraint = Instance.new("NoCollisionConstraint")
+    constraint.Part0 = a
+    constraint.Part1 = b
+    constraint.Parent = parent
+end
+
+local function socketFor(motor: Motor6D, colliders: { [BasePart]: BasePart })
     local part0 = motor.Part0 :: BasePart
     local part1 = motor.Part1 :: BasePart
     local limits = limitsFor(motor.Name)
@@ -50,19 +63,40 @@ local function socketFor(motor: Motor6D)
     socket.TwistUpperAngle = limits.Twist
     socket.Parent = part1
 
-    local noCollision = Instance.new("NoCollisionConstraint")
-    noCollision.Part0 = part0
-    noCollision.Part1 = part1
-    noCollision.Parent = part1
+    -- Neighbours never collide, parts or their colliders, so the joint does not fight itself.
+    noCollision(part0, part1, part1)
+    noCollision(colliders[part0], colliders[part1], part1)
+    noCollision(colliders[part0], part1, part1)
+    noCollision(part0, colliders[part1], part1)
 end
 
 local function preparePart(part: BasePart)
     part.Anchored = false
-    part.CanCollide = true
+    part.CanCollide = false
     part.CanQuery = false
     part.CanTouch = false
     part.Massless = false
     part.LocalTransparencyModifier = 0
+end
+
+-- The part that actually collides, welded inside the limb: the Humanoid only touches the limb.
+local function colliderFor(part: BasePart): BasePart
+    local collider = Instance.new("Part")
+    collider.Name = part.Name .. "Collider"
+    collider.Size = part.Size * RagdollSettings.ColliderScale
+    collider.CFrame = part.CFrame
+    collider.Transparency = 1
+    collider.CanCollide = true
+    collider.CanQuery = false
+    collider.CanTouch = false
+    collider.CastShadow = false
+    collider.Massless = true
+    collider.Parent = part
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = part
+    weld.Part1 = collider
+    weld.Parent = collider
+    return collider
 end
 
 local function prepareHumanoid(humanoid: Humanoid)
@@ -96,6 +130,14 @@ function Ragdoll.Build(character: Model, rig): Model?
         end
     end
 
+    local colliders: { [BasePart]: BasePart } = {}
+    for _, child in clone:GetChildren() do
+        if child:IsA("BasePart") then
+            preparePart(child)
+            colliders[child] = colliderFor(child)
+        end
+    end
+
     local motors = {}
     for _, descendant in clone:GetDescendants() do
         if isLimbJoint(descendant, clone) then
@@ -103,14 +145,8 @@ function Ragdoll.Build(character: Model, rig): Model?
         end
     end
     for _, motor in motors do
-        socketFor(motor)
+        socketFor(motor, colliders)
         motor:Destroy()
-    end
-
-    for _, child in clone:GetChildren() do
-        if child:IsA("BasePart") then
-            preparePart(child)
-        end
     end
     local humanoid = clone:FindFirstChildOfClass("Humanoid")
     if humanoid then

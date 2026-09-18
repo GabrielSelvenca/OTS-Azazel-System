@@ -5,15 +5,15 @@
     game Roblox only plays published animations, so after uploading each KeyframeSequence
     (right click > Save to Roblox) paste its "rbxassetid://..." here. Resolution order:
     weapon override (Weapons[Name][Slot]) -> class (Class[Slot]). R15 mirrors the same layout
-    for the R15 rig. Dev.Commands.ReportMissingAnimationIds() lists what is still empty.
+    for the R15 rig.
 ]]
 
 return {
-    Pistol = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
-    SMG = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
-    Rifle = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
-    Shotgun = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
-    Sniper = { Relaxed = "", Idle = "", Aim = "", Fire = "", Reload = "" },
+    Pistol = { Relaxed = "", Idle = "", Aim = "", Reload = "" },
+    SMG = { Relaxed = "", Idle = "", Aim = "", Reload = "" },
+    Rifle = { Relaxed = "", Idle = "", Aim = "", Reload = "" },
+    Shotgun = { Relaxed = "", Idle = "", Aim = "", Reload = "" },
+    Sniper = { Relaxed = "", Idle = "", Aim = "", Reload = "" },
     Weapons = {},
     R15 = {},
 }

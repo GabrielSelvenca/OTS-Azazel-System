@@ -24,10 +24,23 @@ Nada daqui entra antes do plano fechar.
   braco direito em 3a pessoa, entao a arma fica erguida ate o `Idle` da Fase 4 existir. Na Fase
   4 o `Idle` precisa de prioridade Action para vencer o `toolnone` no braco.
 
+- **Nao controlamos mais a Backpack** (Gabriel, 16/09, alpha.25). O `Systems/Backpack` virou
+  observador: nao cria, nao destroi, nao edita e nao equipa/desequipa Tool nenhuma, e nao
+  entrega loadout nesse modo. Ele so olha o que esta na mao do boneco; Tool que nomeia uma arma
+  (atributo `AzazelWeapon`, `Name` igual a `Name`/`DisplayName`) coloca a arma na mao enquanto
+  estiver equipada, o resto e ignorado. O slot e contabilidade (municao, fire mode, spray) e
+  fica com a Tool ate ela ser destruida, entao guardar e sacar mantem o pente. A API
+  (`GiveWeapon`, `RemoveWeapon`, `SetLoadout`, `Equip`) fala direto com o `Inventory`, sem
+  `EquipRouter`. Consequencia para o Gabriel: **Tool sem `Handle` precisa de
+  `RequiresHandle = false` nela mesma** (era o pacote que marcava isso).
+  Motivo: o pacote equipava a Tool no spawn e um milissegundo depois ela sumia (`is under
+  nothing`), e o dono da Tool e o jogo, nao o pacote.
+- **Desequipar = ficar "normal"** (feito em 16/09, alpha.25). Sem arma na mao a camera volta
+  para a padrao da Roblox (`CameraType.Custom`, cursor, zoom da Roblox, `AutoRotate = true`),
+  `V` e a troca de ombro nao fazem nada, e o painel de municao, a linha de status e a mira
+  somem; a mira so aparece em `Ready`. Ao equipar, a camera assume a partir do angulo em que a
+  da Roblox estava, sem tranco.
+
 ## Para depois
 
-- **Desequipar = ficar "normal"**: com slot 0, esconder toda a UI do Azazel (crosshair, municao,
-  hotbar, armadura), devolver a camera para o padrao da Roblox (`CameraType.Custom`, mouse
-  livre, `AutoRotate = true`) e parar os binds de tiro/mira. Ao equipar qualquer slot tudo volta
-  (camera OTS, lock, HUD). Hoje a camera OTS e o HUD ficam ativos mesmo em `Holstered`.
 - Opcao em `Settings` para o jogo escolher: hotbar sempre visivel ou so com arma equipada.

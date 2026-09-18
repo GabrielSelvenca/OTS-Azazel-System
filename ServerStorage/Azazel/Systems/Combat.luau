@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local package = ReplicatedStorage:WaitForChild("Azazel")
 local Settings = require(package.Config.Settings)
 local Accuracy = require(package.Shared.Accuracy)
+local Animations = require(package.Shared.Animations)
 local Damage = require(package.Shared.Damage)
 local Remotes = require(package.Shared.Remotes)
 local Rig = require(package.Shared.Rig)
@@ -28,6 +29,8 @@ local CREATOR_TAG_LIFETIME = 2
 local WINDOW_SECONDS = 1
 
 local rngByPlayer: { [Player]: Random } = {}
+local lastLook: { [Player]: Vector3 } = {}
+local turnRate: { [Player]: number } = {}
 
 local function rngFor(player: Player): Random
     local rng = rngByPlayer[player]
@@ -43,6 +46,40 @@ local function reject(player: Player, reason: string)
         warn(`[Azazel] Fire rejected from {player.Name}: {reason}`)
     end
     Inventory.PushState(player)
+end
+
+-- How fast the character is actually turning, in degrees per second, sampled from what the
+-- server sees. The body follows the camera with a smoothing lag, so a fast flick leaves it
+-- turning for a few frames behind a shot that is already on target: the yaw cone is widened by
+-- this while it catches up, and by nothing at all for someone standing still.
+local function sampleTurnRates(dt: number)
+    if dt <= 0 then
+        return
+    end
+    local keep = math.exp(-dt / math.max(Settings.Server.YawCatchUp, 0.01))
+    for _, player in Players:GetPlayers() do
+        local character = player.Character
+        local rig = character and Rig.Get(character)
+        local root = rig and character:FindFirstChild(rig.Root)
+        local look = if root and root:IsA("BasePart") then Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z) else nil
+        local previous = lastLook[player]
+        lastLook[player] = look
+        if not look or look.Magnitude < 0.05 then
+            turnRate[player] = nil
+            continue
+        end
+        local decayed = (turnRate[player] or 0) * keep
+        if previous and previous.Magnitude >= 0.05 then
+            local turned = math.deg(math.acos(math.clamp(previous.Unit:Dot(look.Unit), -1, 1)))
+            decayed = math.max(decayed, turned / dt)
+        end
+        turnRate[player] = if decayed > 1 then decayed else nil
+    end
+end
+
+local function yawAllowance(player: Player): number
+    local lead = (turnRate[player] or 0) * Settings.Server.YawCatchUp
+    return Settings.Server.MaxYawDelta + math.min(lead, Settings.Server.MaxYawCatchUp)
 end
 
 local function isFinite(vector: Vector3): boolean
@@ -218,7 +255,7 @@ local function onFire(player: Player, origin: Vector3, direction: Vector3, seq: 
     local flatLook = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
     if flatDirection.Magnitude > 0.05 and flatLook.Magnitude > 0.05 then
         local angle = math.deg(math.acos(math.clamp(flatDirection.Unit:Dot(flatLook.Unit), -1, 1)))
-        if angle > Settings.Server.MaxYawDelta then
+        if angle > yawAllowance(player) then
             return reject(player, "yaw out of range")
         end
     end
@@ -270,7 +307,8 @@ local function onReload(player: Player)
     end
     local slot = Inventory.GetSlot(state)
     local cfg = state.Config
-    if not slot or not cfg or state.EquipState ~= "Ready" then
+    local from = state.EquipState
+    if not slot or not cfg or (from ~= "Ready" and from ~= "Relaxed") then
         return
     end
     local infinite = Settings.Server.InfiniteAmmo
@@ -282,7 +320,8 @@ local function onReload(player: Player)
         return
     end
     local generation = Inventory.Bump(state)
-    local duration = if slot.Ammo <= 0 then cfg.Reload.EmptyTime else cfg.Reload.Time
+    local duration = Animations.ReloadTime(cfg, slot.Ammo <= 0)
+    state.ReloadFrom = from
     state.EquipState = "Reloading"
     Inventory.PushState(player)
     task.delay(duration, function()
@@ -295,18 +334,30 @@ local function onReload(player: Player)
         if not infinite then
             slot.Reserve -= moved
         end
-        state.EquipState = "Ready"
+        state.EquipState = from
         Inventory.PushState(player)
     end)
 end
 
+-- Aiming only exists with the weapon armed; a relaxed weapon is lowered.
 local function onAim(player: Player, aiming: boolean)
     local state = Inventory.Get(player)
     local slot = state and Inventory.GetSlot(state)
-    if not slot then
+    if not slot or (aiming and state.EquipState ~= "Ready") then
         return
     end
     slot.Accuracy.AimStartedAt = if aiming then os.clock() else nil
+end
+
+-- The camera pitch of a player holding a weapon, relayed so everyone sees their arms and head
+-- follow it (Client/Controllers/LookController). Cosmetic: clamped, never part of a shot.
+local function onLook(player: Player, pitch: number)
+    local state = Inventory.Get(player)
+    if not state or state.EquipState == "Holstered" or pitch ~= pitch or math.abs(pitch) == math.huge then
+        return
+    end
+    local limits = Settings.Camera.PitchLimits
+    Remotes.FireAllExcept("LookUpdate", player, player, math.clamp(pitch, limits.Min, limits.Max))
 end
 
 local function onSetFireMode(player: Player, index: number)
@@ -325,9 +376,13 @@ function Combat.Start()
     Remotes.OnServer("Reload", onReload)
     Remotes.OnServer("Aim", onAim)
     Remotes.OnServer("SetFireMode", onSetFireMode)
+    Remotes.OnServer("Look", onLook)
     Players.PlayerRemoving:Connect(function(player)
         rngByPlayer[player] = nil
+        lastLook[player] = nil
+        turnRate[player] = nil
     end)
+    RunService.Heartbeat:Connect(sampleTurnRates)
 end
 
 return Combat

@@ -1,19 +1,14 @@
+-- Animation slots: the names the loader looks for under Assets/Animations/<Class>/ and
+-- Assets/Animations/Weapons/<Name>/, with the priority and loop flag it applies to each
+-- KeyframeSequence by slot name. Everything under Assets is placed by hand in Studio.
 return {
-    Folders = {
-        "Weapons",
-        "Animations",
-        "Animations/Weapons",
-        "Effects",
-        "Sounds",
-    },
     AnimationClasses = { "Pistol", "SMG", "Rifle", "Shotgun", "Sniper" },
-    AnimationSlots = { "Relaxed", "Idle", "Aim", "Fire", "Reload", "ReloadEmpty", "Equip", "Sprint", "Inspect", "Unequip" },
+    AnimationSlots = { "Relaxed", "Idle", "Aim", "Reload", "ReloadEmpty", "Equip", "Sprint", "Inspect", "Unequip" },
     SlotPriority = {
         Idle = Enum.AnimationPriority.Idle,
         Relaxed = Enum.AnimationPriority.Idle,
         Aim = Enum.AnimationPriority.Movement,
         Sprint = Enum.AnimationPriority.Movement,
-        Fire = Enum.AnimationPriority.Action2,
         Reload = Enum.AnimationPriority.Action,
         ReloadEmpty = Enum.AnimationPriority.Action,
         Inspect = Enum.AnimationPriority.Action,
@@ -21,10 +16,4 @@ return {
         Unequip = Enum.AnimationPriority.Action3,
     },
     SlotLoop = { Idle = true, Aim = true, Sprint = true, Relaxed = true },
-    Import = {
-        MovingParts = { "Magazine" },
-        AttachmentParts = { Muzzle = "Muzzle" },
-        Discard = { "Handle1", "PanMuzzle", "BayonetHitBox", "BayonetBlade", "StockClips", "ScopeRet", "Retikle" },
-        SoundRenames = { FireSelect = "Selector" },
-    },
 }

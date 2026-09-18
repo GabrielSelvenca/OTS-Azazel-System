@@ -18,12 +18,15 @@ local DEFINITIONS = {
     Equip = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(slotCheck), Rate = 8 },
     Reload = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(), Rate = 6 },
     Aim = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(T.boolean), Rate = 10 },
+    Relax = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(T.boolean), Rate = 8 },
     SetFireMode = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(fireModeCheck), Rate = 5 },
     Fire = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(T.Vector3, T.Vector3, T.integer), Rate = Settings.Server.FireRateLimit },
+    Look = { Kind = "UnreliableRemoteEvent", Direction = "ClientToServer", Schema = T.tuple(T.number), Rate = Settings.Look.SendRate * 2 },
     State = { Kind = "RemoteEvent", Direction = "ServerToClient" },
     ShotFired = { Kind = "UnreliableRemoteEvent", Direction = "ServerToClient" },
     HitConfirmed = { Kind = "RemoteEvent", Direction = "ServerToClient" },
     Ragdoll = { Kind = "RemoteEvent", Direction = "ServerToClient" },
+    LookUpdate = { Kind = "UnreliableRemoteEvent", Direction = "ServerToClient" },
 }
 
 local folder: Folder? = nil

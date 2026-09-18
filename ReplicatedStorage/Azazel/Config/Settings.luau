@@ -2,7 +2,7 @@
     Azazel global settings.
 
     Everything tunable that is not specific to one weapon or one piece of equipment lives here,
-    one table per area. Weapons are in Config/Weapons, equipment in Config/Equipment, animation
+    one table per area. Weapons are in Config/Weapons.luau, equipment in Config/Equipment, animation
     ids in Config/AnimationIds. Edit values in place; the game can also overwrite fields at
     runtime before the controllers start (require this module and assign).
 
@@ -23,7 +23,7 @@ Settings.Camera = {
     ZoomStep = 1.5,                             -- studs per wheel notch
     Shoulder = Vector3.new(1.6, 0.6, 0),        -- pivot offset; X flips when the shoulder swaps
     PivotOffset = Vector3.new(0, 1.5, 0),       -- pivot above the root, third person
-    FirstPersonOffset = Vector3.new(0, 1.5, 0), -- camera position above the root, first person
+    FirstPersonOffset = Vector3.new(0, 1.5, 0), -- the eye above the root, first person (the head on R6); aiming moves it onto the weapon's Sight
     Sensitivity = 0.25,                         -- degrees per pixel of mouse delta
     PitchLimits = { Min = -80, Max = 80 },
     CollisionRadius = 0.3,                      -- sphere cast radius that keeps the camera out of walls
@@ -38,16 +38,18 @@ Settings.Camera = {
 }
 
 -- First person arms: the viewmodel is a clone of the player's own rig (torso, arms, weapon)
--- parented to the camera. Offset places the rig root relative to the camera; aiming moves the
--- weapon's Sight attachment to the screen center (Ads.SightDistance per weapon), or uses
--- Ads.ViewmodelOffset when the model has no Sight.
+-- parented to the camera. It stands exactly where the real body stands, turned with the camera
+-- about the eye, so the clip is the only thing that places the arms; there is no offset or
+-- pose here. Aiming moves the camera onto the weapon's Sight attachment (CameraController),
+-- not the arms. The clone draws only the arms and the weapon. ShowBody = false hides the whole
+-- real character, as the Roblox camera does; true keeps the real torso and legs visible below
+-- the camera and hides only the head, the arms, what hangs from them and the held weapon.
 Settings.Viewmodel = {
-    Offset = CFrame.new(0, -1.9, -0.5),                                  -- rig root relative to the camera
     Sway = { Amount = 0.06, Clamp = 0.25, Damping = 0.7, Frequency = 6 }, -- radians per 10 px of mouse movement, clamp in radians
     Bob = { X = 0.04, Y = 0.03, Speed = 9 },                              -- walk bob amplitude (studs) and speed
     AimSwayMultiplier = 0.3,                                             -- sway kept while aiming
     AimBobMultiplier = 0.2,                                              -- bob kept while aiming
-    HideCharacterInFirstPerson = true,
+    ShowBody = false,                                                    -- true keeps the real torso and legs visible in first person
 }
 
 -- Input bindings. Keyboard and mouse use UserInputType or KeyCode; the Gamepad table mirrors
@@ -62,7 +64,7 @@ Settings.Keys = {
     SwapShoulder = Enum.KeyCode.Q,
     FireMode = Enum.KeyCode.B,
     Sprint = Enum.KeyCode.LeftShift,
-    Inspect = Enum.KeyCode.F,
+    Ready = Enum.KeyCode.F,                     -- arms the weapon: toggles Relaxed <-> Ready
     Gamepad = {
         Fire = Enum.KeyCode.ButtonR2,
         Aim = Enum.KeyCode.ButtonL2,
@@ -83,7 +85,8 @@ Settings.Hud = {
         Length = 10,
         Dot = true,
         Color = Color3.fromRGB(255, 255, 255),
-        HideWhenScoped = true,
+        HideWhenScoped = true,          -- hidden while aiming a Scope weapon
+        HideWhenAimingFirstPerson = true, -- hidden while aiming in first person: the sights are the crosshair
     },
     HitmarkerTime = 0.12,
     HitmarkerColor = Color3.fromRGB(255, 255, 255),
@@ -96,6 +99,10 @@ Settings.Hud = {
 Settings.Server = {
     MaxOriginDistance = 8,   -- shot origin must be within this many studs of the head
     MaxYawDelta = 75,        -- shot direction vs. character facing, degrees
+    YawCatchUp = 0.25,       -- seconds of turning the yaw cone forgives while the body catches
+                             -- up with the camera (a fast flick leaves it behind); 0 turns the
+                             -- forgiveness off and the cone is always MaxYawDelta
+    MaxYawCatchUp = 120,     -- cap for that forgiveness, degrees
     MaxPitch = 85,           -- shot pitch limit, degrees
     RateGrace = 0.9,         -- fraction of the shot interval accepted early (latency grace)
     WindowSlack = 2,         -- extra shots allowed per second over the fire rate
@@ -105,9 +112,11 @@ Settings.Server = {
     KickOnAbuse = false,     -- kick after AbuseThreshold remote violations
     AbuseThreshold = 30,
     FireRateLimit = 45,      -- Fire remote calls per second per player, on top of the weapon rate
-    UseBackpack = true,      -- weapons are Tools in the Backpack; the Roblox hotbar equips them, slot keys are off
-    DefaultLoadout = {       -- given on spawn when GiveDefaultLoadoutOnSpawn is true
-        Weapons = { "FAL", "MP5A3", "Beretta", "Remington700", "BFG50" },
+    UseBackpack = true,      -- the weapon in the hand is the Tool the player equipped; the package
+                             -- only recognises the Tools that name a weapon and never touches the
+                             -- Backpack, so the slot keys and the loadout below are off
+    DefaultLoadout = {       -- given on spawn when GiveDefaultLoadoutOnSpawn is true (UseBackpack off)
+        Weapons = { "FNFNC" },
         Equipment = { "HelmetLight", "VestLight" },
     },
     GiveDefaultLoadoutOnSpawn = false,
@@ -116,10 +125,32 @@ Settings.Server = {
 }
 
 -- Animation playback. PreferManifestInStudio = true uses the published ids from AnimationIds
--- even in Studio, instead of the embedded KeyframeSequences under Assets/Animations.
+-- even in Studio, instead of the embedded KeyframeSequences under Assets/Animations. Slot
+-- names, priority and loop are in Assets/Manifest.
 Settings.Animations = {
     PreferManifestInStudio = false,
-    FadeTime = 0.1,
+    FadeTime = 0.1,             -- seconds to blend between slots
+    LogSlots = false,           -- print the slots found under Assets/Animations on the first weapon
+    OverrideToolTrack = true,   -- stop the tool track of the default Animate script, which
+                                -- holds the right arm while a Backpack Tool is equipped
+    ToolTracks = { "toolnone", "ToolNone", "ToolNoneAnim", "rbxassetid://182393478" },
+}
+
+-- The arms and head of an armed character (Ready: Idle or Aim, and a reload started there)
+-- follow the camera pitch, in third person and for everyone else: the pitch travels on an
+-- unreliable remote SendRate times a second and other clients ease into it over Smoothing
+-- seconds. A character that stops sending levels out after Timeout.
+Settings.Look = {
+    Enabled = true,
+    SendRate = 15,       -- pitch packets per second while holding a weapon
+    Smoothing = 0.08,    -- seconds other players' characters take to catch up
+    Timeout = 1,         -- seconds without a packet before a character levels out
+}
+
+-- Weapon sounds, placed by hand under Assets/Sounds (Client/Controllers/SoundController):
+-- Fire under the weapon's own folder, ModeSelect, RemoveMag and InsertMag shared at the root.
+Settings.Sounds = {
+    Enabled = true,
 }
 
 -- Effect quality. Source "Auto" follows the player's Roblox graphics setting (SavedLevels maps
@@ -150,7 +181,7 @@ Settings.Effects = {
     PoolSizes = { Tracer = 32, Casing = 24, Impact = 16 }, -- parts created up front per effect
     CasingLifetime = 2,
     Tracer = {
-        Color = Color3.fromRGB(255, 200, 40),
+        Color = Color3.fromRGB(255, 209, 117),
         Width = 0.2,                                       -- studs
         Length = 5,                                        -- visible rod length, studs
         Speed = 1200,                                      -- studs per second
@@ -171,7 +202,7 @@ Settings.Effects = {
         },
         Light = {
             Enabled = true,
-            Color = Color3.fromRGB(255, 225, 170),        -- fixed, independent of the tracer color
+            Color = Color3.fromRGB(255, 240, 184),        -- fixed, independent of the tracer color
             Brightness = 0.5,
             Range = 8,
             Shadows = false,
@@ -189,7 +220,9 @@ Settings.Ragdoll = {
     Enabled = true,
     Lifetime = 8,               -- seconds the ragdoll stays before it is removed
     FadeTime = 1,               -- fade out during the last seconds of Lifetime
-    Impulse = 30,               -- velocity (studs/s) added along the shot to the part that took the killing hit
+    BodyImpulse = 10,           -- velocity (studs/s) every part gets along the shot: the whole body goes, then tips over the feet
+    Impulse = 15,               -- extra velocity along the shot on the part that took the killing hit
+    ColliderScale = 0.85,       -- size of the invisible collider welded inside each part, as a fraction of the part
     Joints = {
         Default = { UpperAngle = 45, Twist = 30 },
         Neck = { UpperAngle = 30, Twist = 40 },
@@ -206,15 +239,16 @@ Settings.Debug = {
     Enabled = false,
     PrintBoot = true,           -- "[Azazel] <version> N/M systems started" on boot
     LogRejections = true,       -- warn in the Output when the server discards a client request
+    LogInventory = true,        -- print who took which slot, from which Tool, and what spawn equipped
     ServerTracers = {           -- one line per shot drawn by the server, visible in the Server view
-        Enabled = true,
+        Enabled = false,
         Color = Color3.fromRGB(255, 80, 80),
-        Width = 0.08,
+        Width = 0.02,
         Lifetime = 0.15,
     },
     ClientShots = {             -- client side of every shot: lines, points and a detailed print
         Enabled = true,
-        Print = true,           -- "[Azazel:Shot]" and "[Azazel:Tracer]" in the Output
+        Print = false,           -- "[Azazel:Shot]" and "[Azazel:Tracer]" in the Output
         Draw = true,            -- parts in workspace.AzazelShotDebug
         Lifetime = 3,
         LineWidth = 0.05,
@@ -232,10 +266,7 @@ Settings.Debug = {
 
 -- Text shown to the player. Override from the game to translate.
 Settings.Strings = {
-    Reloading = "RELOADING",
-    Equipping = "EQUIPPING",
-    Empty = "EMPTY",
-    Holstered = "UNARMED",
+    Reloading = "Reloading...",   -- takes the place of the ammo count while the weapon reloads
     FireModes = { Auto = "AUTO", Semi = "SEMI", Burst = "BURST" },
 }
 

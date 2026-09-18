@@ -15,6 +15,7 @@ local ViewmodelController = {}
 
 local Signals = Client.Signals
 local ViewmodelSettings = Settings.Viewmodel
+local CameraSettings = Settings.Camera
 
 local RENDER_NAME = "AzazelViewmodel"
 local RENDER_PRIORITY = Enum.RenderPriority.Camera.Value + 1
@@ -22,22 +23,42 @@ local MODEL_NAME = "AzazelViewmodel"
 local KEEP_CLASSES = { Shirt = true, BodyColors = true }
 
 local character: Model? = nil
+local characterRoot: BasePart? = nil
 local characterTrove = nil
 local viewmodel: Model? = nil
 local viewmodelRoot: BasePart? = nil
 local viewmodelWeapon: Model? = nil
-local poseMotors: { [string]: Motor6D } = {}
 local weaponConfig = nil
 local mouseDelta = Vector2.zero
 local bobTime = 0
 
+local warnedNoSight: { [string]: boolean } = {}
+
 local swaySpring = Spring.new(ViewmodelSettings.Sway.Damping, ViewmodelSettings.Sway.Frequency)
 local bobSpring = Spring.new(1, 8)
-local recoilSpring = Spring.new(0.6, 12)
 local adsValue = Instance.new("NumberValue")
 
 local function camera(): Camera
     return workspace.CurrentCamera
+end
+
+-- Where the clone stands: the place of the real body, turned with the camera about the eye.
+-- The eye sits Camera.FirstPersonOffset above the root, so the root goes that far back down,
+-- and a clip made on the rig lands in first person exactly as it lands on the character.
+local function bodyCFrame(root: BasePart, rotation: CFrame): CFrame
+    local eye = root.Position + CameraSettings.FirstPersonOffset
+    return CFrame.new(eye) * rotation * CFrame.new(-CameraSettings.FirstPersonOffset)
+end
+
+-- The weapon's Sight relative to the eye, in the body's axes, for the camera to move onto while
+-- aiming. Root space depends only on the pose, not on where the clone stands this frame.
+local function publishSight(root: BasePart)
+    local sight = WeaponModel.FindPoint(viewmodelWeapon, "Sight")
+    if sight then
+        Client.SightOffset = root.CFrame:PointToObjectSpace(sight.Position) - CameraSettings.FirstPersonOffset
+    else
+        Client.SightOffset = nil
+    end
 end
 
 local function isFirstPerson(): boolean
@@ -53,19 +74,17 @@ local function shouldShow(): boolean
     return isFirstPerson() and character ~= nil and isAlive() and Client.Config ~= nil
 end
 
-local function preparePart(part: BasePart, isRoot: boolean)
+local function preparePart(part: BasePart, isRoot: boolean, hidden: boolean)
     part.Anchored = isRoot
     part.CanCollide = false
     part.CanQuery = false
     part.CanTouch = false
     part.Massless = true
     part.CastShadow = false
-    part.LocalTransparencyModifier = 0
-    if isRoot then
-        part.Transparency = 1
-    end
+    part.LocalTransparencyModifier = if hidden then 1 else 0
 end
 
+-- The clone draws only the arms; the root and torso stay to carry the shoulder joints.
 local function stripClone(clone: Model, rig)
     local keepParts = {}
     for _, name in rig.ViewmodelKeep do
@@ -74,6 +93,10 @@ local function stripClone(clone: Model, rig)
     local keepJoints = {}
     for _, name in rig.ViewmodelJoints do
         keepJoints[name] = true
+    end
+    local shownParts = {}
+    for _, name in rig.FirstPersonHidden do
+        shownParts[name] = true
     end
     for _, child in clone:GetChildren() do
         local keep = (child:IsA("BasePart") and keepParts[child.Name]) or KEEP_CLASSES[child.ClassName]
@@ -86,7 +109,8 @@ local function stripClone(clone: Model, rig)
         if descendant:IsA("LuaSourceContainer") or staleJoint then
             descendant:Destroy()
         elseif descendant:IsA("BasePart") then
-            preparePart(descendant, descendant.Name == rig.Root)
+            local isRoot = descendant.Name == rig.Root
+            preparePart(descendant, isRoot, isRoot or not shownParts[descendant.Name])
         end
     end
 end
@@ -96,6 +120,8 @@ local function destroyWeapon()
         WeaponModel.Detach(viewmodel)
     end
     viewmodelWeapon = nil
+    Client.ViewmodelWeapon = nil
+    Client.SightOffset = nil
 end
 
 local function attachWeapon()
@@ -111,6 +137,7 @@ local function attachWeapon()
     end
     WeaponModel.Attach(viewmodel, model, weaponConfig)
     viewmodelWeapon = model
+    Client.ViewmodelWeapon = model
 end
 
 local function destroyViewmodel()
@@ -120,17 +147,6 @@ local function destroyViewmodel()
     end
     viewmodel = nil
     viewmodelRoot = nil
-    poseMotors = {}
-end
-
-local function collectPoseMotors(clone: Model, rig)
-    poseMotors = {}
-    for arm, jointName in rig.PoseJoints do
-        local motor = clone:FindFirstChild(jointName, true)
-        if motor and motor:IsA("Motor6D") then
-            poseMotors[arm] = motor
-        end
-    end
 end
 
 local function buildViewmodel()
@@ -165,7 +181,6 @@ local function buildViewmodel()
     clone.Parent = camera()
     viewmodel = clone
     viewmodelRoot = root
-    collectPoseMotors(clone, rig)
     attachWeapon()
 end
 
@@ -184,26 +199,20 @@ local function retargetAds()
     local aiming = Client.Aiming and cfg ~= nil
     local seconds = if cfg then cfg.Ads.Time else 0.15
     Spr.target(adsValue, 1, 1 / math.max(seconds, 0.05), { Value = if aiming then 1 else 0 })
-end
-
-local function sightCFrame(cameraCFrame: CFrame, root: BasePart, cfg): CFrame
-    local hip = cameraCFrame * ViewmodelSettings.Offset
-    local sight = WeaponModel.FindAttachment(viewmodelWeapon, "Sight")
-    if not sight then
-        return hip * cfg.Ads.ViewmodelOffset
+    if aiming and viewmodelWeapon and not warnedNoSight[cfg.Name] and not WeaponModel.FindPoint(viewmodelWeapon, "Sight") then
+        warnedNoSight[cfg.Name] = true
+        warn(`[Azazel] {cfg.Name}: the model has no Sight (an Attachment or a Part named Sight); the camera stays at the head while aiming`)
     end
-    local sightOffset = root.CFrame:PointToObjectSpace(sight.WorldPosition)
-    local sightTarget = cameraCFrame * CFrame.new(0, 0, -cfg.Ads.SightDistance)
-    return CFrame.new(sightTarget.Position - cameraCFrame:VectorToWorldSpace(sightOffset)) * cameraCFrame.Rotation
 end
 
 local function step(dt: number)
     local root = viewmodelRoot
+    local body = characterRoot
     local cfg = Client.Config
-    if not viewmodel or not root or not cfg then
+    if not viewmodel or not root or not body or not cfg then
         return
     end
-    local cameraCFrame = camera().CFrame
+    local rotation = camera().CFrame.Rotation
     local aim = adsValue.Value
 
     local sway = ViewmodelSettings.Sway
@@ -228,41 +237,13 @@ local function step(dt: number)
         bobSpring.Target = Vector3.zero
     end
     local bobNow = bobSpring:Step(dt)
-    local recoilNow = recoilSpring:Step(dt)
 
-    local hip = cameraCFrame * ViewmodelSettings.Offset
-    local base = if aim > 0.001 then hip:Lerp(sightCFrame(cameraCFrame, root, cfg), aim) else hip
-    root.CFrame = base
+    -- The shot is the camera kick alone: the arms never move against the camera, so the sight
+    -- stays where the eye is while aiming.
+    publishSight(root)
+    root.CFrame = bodyCFrame(body, rotation)
         * CFrame.Angles(swayNow.Y, swayNow.X, swayNow.X * 0.5)
         * CFrame.new(bobNow.X, bobNow.Y, 0)
-        * CFrame.new(0, 0, recoilNow.Z)
-        * CFrame.Angles(math.rad(recoilNow.Y), 0, 0)
-end
-
-local function poseTransform(motor: Motor6D, angles): CFrame
-    local rotation = CFrame.Angles(0, math.rad(angles.Yaw), 0)
-        * CFrame.Angles(math.rad(angles.Pitch), 0, 0)
-        * CFrame.Angles(0, 0, math.rad(angles.Roll))
-    local joint = motor.C0.Rotation
-    return joint:Inverse() * rotation * joint
-end
-
--- After the Animator has written Transform for this frame and before physics reads it.
-local function applyPose()
-    local cfg = Client.Config
-    if not viewmodel or not cfg then
-        return
-    end
-    local animator = ViewmodelController.GetAnimator()
-    if animator and #animator:GetPlayingAnimationTracks() > 0 then
-        return
-    end
-    for arm, motor in poseMotors do
-        local angles = cfg.Pose[arm]
-        if angles then
-            motor.Transform = poseTransform(motor, angles)
-        end
-    end
 end
 
 local function onCharacter(newCharacter: Model?)
@@ -271,6 +252,7 @@ local function onCharacter(newCharacter: Model?)
         characterTrove = nil
     end
     character = newCharacter
+    characterRoot = nil
     destroyViewmodel()
     if not newCharacter then
         return
@@ -280,6 +262,10 @@ local function onCharacter(newCharacter: Model?)
     local humanoid = newCharacter:WaitForChild("Humanoid", 10)
     if humanoid and humanoid:IsA("Humanoid") then
         trove:Connect(humanoid.Died, destroyViewmodel)
+    end
+    local rig = Rig.Get(newCharacter)
+    if rig then
+        characterRoot = newCharacter:WaitForChild(rig.Root, 10) :: BasePart?
     end
     refresh()
 end
@@ -306,8 +292,6 @@ function ViewmodelController.Start()
     Signals.ViewChanged:Connect(refresh)
     Signals.WeaponChanged:Connect(function(cfg)
         weaponConfig = cfg
-        recoilSpring.Position = Vector3.zero
-        recoilSpring.Velocity = Vector3.zero
         local existed = viewmodel ~= nil
         refresh()
         if existed and viewmodel then
@@ -316,16 +300,6 @@ function ViewmodelController.Start()
         retargetAds()
     end)
     Signals.AimChanged:Connect(retargetAds)
-    Signals.Recoil:Connect(function()
-        local cfg = Client.Config
-        if not cfg or not viewmodel then
-            return
-        end
-        local recoil = cfg.Recoil.Viewmodel
-        recoilSpring.Damping = recoil.Damping
-        recoilSpring.Frequency = recoil.Frequency
-        recoilSpring:Nudge(Vector3.new(0, recoil.Rise, recoil.Kick))
-    end)
 
     Observers.observeLocalCharacter(function(newCharacter)
         onCharacter(newCharacter)
@@ -338,7 +312,6 @@ function ViewmodelController.Start()
 
     retargetAds()
     RunService:BindToRenderStep(RENDER_NAME, RENDER_PRIORITY, step)
-    RunService.PreSimulation:Connect(applyPose)
 end
 
 return ViewmodelController

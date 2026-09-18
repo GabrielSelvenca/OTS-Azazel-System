@@ -69,9 +69,9 @@ function InputController.Start()
         Signals.SprintInput:Fire(false)
     end, Keys.Sprint)
 
-    bind("AzazelInspect", function()
-        Signals.InspectInput:Fire()
-    end, nil, Keys.Inspect)
+    bind("AzazelReady", function()
+        Signals.ReadyInput:Fire()
+    end, nil, Keys.Ready)
 
     if not Settings.Server.UseBackpack then
         bind("AzazelHolster", function()

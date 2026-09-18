@@ -19,7 +19,7 @@ Anotacoes do Gabriel sobre o rastro da bala. Nada aqui e implementado fora da fa
   fade do rastro, luz); arma/classe sobrescreve o que quiser (alpha.5). Cor padrao mais amarela.
 - Luz na bala: `PointLight` sem sombra, `Settings.Effects.Tracer.Light`, ligada so a ate
   `TracerLightDistance` studs da camera por nivel de qualidade. Os "quadrados no chao" vem do `Lighting.Technology` em Voxel/Compatibility (grade de
-  4 studs); com ShadowMap ou Future a luz fica lisa. `Doctor()` avisa (alpha.5).
+  4 studs); com ShadowMap ou Future a luz fica lisa (alpha.5).
 - Tiro de outro jogador nasce no cano da arma como o observador a ve (posicao local), nao no cano
   da copia do servidor, que fica atrasada. Primeiro frame ja mostra a barra saindo do cano; a 1200
   studs/s o passo de um frame e 20 studs, e o rastro (`Trail.Lifetime`) cobre o vao (alpha.6).

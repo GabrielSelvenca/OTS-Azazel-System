@@ -19,10 +19,6 @@ local BOOT_ORDER = {
     { Name = "Combat", System = Combat },
 }
 
-local function weapons()
-    return if Settings.Server.UseBackpack then Backpack else Inventory
-end
-
 local Azazel = {
     Version = Version,
     Settings = Settings,
@@ -61,11 +57,11 @@ function Azazel.Start()
 end
 
 function Azazel.GiveWeapon(player: Player, weaponName: string, slot: number?): number?
-    return weapons().GiveWeapon(player, weaponName, slot)
+    return Inventory.GiveWeapon(player, weaponName, slot)
 end
 
 function Azazel.RemoveWeapon(player: Player, slot: number)
-    weapons().RemoveWeapon(player, slot)
+    Inventory.RemoveWeapon(player, slot)
 end
 
 function Azazel.GiveEquipment(player: Player, equipmentName: string): boolean
@@ -77,11 +73,15 @@ function Azazel.RemoveEquipment(player: Player, zone: string)
 end
 
 function Azazel.SetLoadout(player: Player, loadout)
-    weapons().SetLoadout(player, loadout)
+    Inventory.SetLoadout(player, loadout)
 end
 
 function Azazel.Equip(player: Player, slot: number)
     Inventory.RequestEquip(player, slot)
+end
+
+function Azazel.SetRelaxed(player: Player, relaxed: boolean)
+    Inventory.SetRelaxed(player, relaxed)
 end
 
 function Azazel.GetState(player: Player)
