@@ -11,122 +11,57 @@ UIKit.Theme = {
     PanelTransparency = 0.35,
     Accent = Color3.fromRGB(255, 200, 80),
     Danger = Color3.fromRGB(255, 70, 70),
-    Stroke = Color3.fromRGB(255, 255, 255),
 }
 
-local TEXT_CLASSES = { TextLabel = true, TextButton = true, TextBox = true }
-
-local function applyDefaults(instance: Instance, className: string)
-    if TEXT_CLASSES[className] then
-        local text = instance :: TextLabel
-        text.BackgroundTransparency = 1
-        text.BorderSizePixel = 0
-        text.Font = Settings.Hud.Font
-        text.TextColor3 = UIKit.Theme.Text
-        text.TextSize = 16
-    elseif className == "Frame" or className == "ImageLabel" or className == "ImageButton" then
-        (instance :: Frame).BorderSizePixel = 0
-    end
-end
-
-local function addPadding(parent: Instance, value)
-    local padding = Instance.new("UIPadding")
-    if type(value) == "number" then
-        local dim = UDim.new(0, value)
-        padding.PaddingTop, padding.PaddingBottom, padding.PaddingLeft, padding.PaddingRight = dim, dim, dim, dim
-    else
-        padding.PaddingTop = UDim.new(0, value.Top or 0)
-        padding.PaddingBottom = UDim.new(0, value.Bottom or 0)
-        padding.PaddingLeft = UDim.new(0, value.Left or 0)
-        padding.PaddingRight = UDim.new(0, value.Right or 0)
-    end
-    padding.Parent = parent
-end
-
-local function addListLayout(parent: Instance, value)
-    local layout = Instance.new("UIListLayout")
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    if type(value) == "table" then
-        layout.FillDirection = value.Direction or Enum.FillDirection.Vertical
-        layout.Padding = UDim.new(0, value.Padding or 0)
-        layout.HorizontalAlignment = value.HorizontalAlignment or Enum.HorizontalAlignment.Left
-        layout.VerticalAlignment = value.VerticalAlignment or Enum.VerticalAlignment.Top
-    else
-        layout.Padding = UDim.new(0, tonumber(value) or 0)
-    end
-    layout.Parent = parent
-end
-
-function UIKit.New(className: string, props: { [string]: any }?): Instance
+-- Corner and Padding (pixels) add a UICorner / UIPadding; every other key is a property.
+function UIKit.New(className: string, props: { [string]: any }): Instance
     local instance = Instance.new(className)
-    applyDefaults(instance, className)
-    local children, parent
-    if props then
-        for key, value in props do
-            if key == "Parent" then
-                parent = value
-            elseif key == "Children" then
-                children = value
-            elseif key == "Corner" then
-                local corner = Instance.new("UICorner")
-                corner.CornerRadius = UDim.new(0, value)
-                corner.Parent = instance
-            elseif key == "Stroke" then
-                local stroke = Instance.new("UIStroke")
-                stroke.Color = value.Color or UIKit.Theme.Stroke
-                stroke.Thickness = value.Thickness or 1
-                stroke.Transparency = value.Transparency or 0
-                stroke.Parent = instance
-            elseif key == "Padding" then
-                addPadding(instance, value)
-            elseif key == "ListLayout" then
-                addListLayout(instance, value)
-            elseif key == "GridLayout" then
-                local grid = Instance.new("UIGridLayout")
-                grid.CellSize = value.CellSize
-                grid.CellPadding = value.CellPadding or UDim2.new()
-                grid.SortOrder = Enum.SortOrder.LayoutOrder
-                grid.Parent = instance
-            else
-                (instance :: any)[key] = value
-            end
+    if instance:IsA("GuiObject") then
+        instance.BorderSizePixel = 0
+    end
+    if instance:IsA("TextLabel") then
+        instance.BackgroundTransparency = 1
+        instance.Font = Settings.Hud.Font
+        instance.TextColor3 = UIKit.Theme.Text
+        instance.TextSize = 16
+    end
+    local parent = nil
+    for key, value in props do
+        if key == "Parent" then
+            parent = value
+        elseif key == "Corner" then
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, value)
+            corner.Parent = instance
+        elseif key == "Padding" then
+            local padding = Instance.new("UIPadding")
+            local dim = UDim.new(0, value)
+            padding.PaddingTop, padding.PaddingBottom, padding.PaddingLeft, padding.PaddingRight = dim, dim, dim, dim
+            padding.Parent = instance
+        else
+            (instance :: any)[key] = value
         end
     end
-    if children then
-        for _, child in children do
-            child.Parent = instance
-        end
-    end
-    if parent then
-        instance.Parent = parent
-    end
+    instance.Parent = parent
     return instance
 end
 
-function UIKit.Text(props: { [string]: any }?): TextLabel
+function UIKit.Text(props: { [string]: any }): TextLabel
     return UIKit.New("TextLabel", props) :: TextLabel
 end
 
-function UIKit.Screen(name: string, props: { [string]: any }?): ScreenGui
-    local player = Players.LocalPlayer
-    local playerGui = player:WaitForChild("PlayerGui")
+function UIKit.Screen(name: string, props: { [string]: any }): ScreenGui
+    local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
     local existing = playerGui:FindFirstChild(name)
     if existing then
         existing:Destroy()
     end
-    local merged = {
-        Name = name,
-        ResetOnSpawn = false,
-        IgnoreGuiInset = true,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        Parent = playerGui,
-    }
-    if props then
-        for key, value in props do
-            merged[key] = value
-        end
-    end
-    return UIKit.New("ScreenGui", merged) :: ScreenGui
+    props.Name = name
+    props.ResetOnSpawn = false
+    props.IgnoreGuiInset = true
+    props.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    props.Parent = playerGui
+    return UIKit.New("ScreenGui", props) :: ScreenGui
 end
 
 return UIKit

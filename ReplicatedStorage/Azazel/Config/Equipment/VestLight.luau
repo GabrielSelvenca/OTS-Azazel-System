@@ -1,5 +1,4 @@
--- One piece of equipment; see the header of Config/EquipmentConfig for every field.
--- No Durability means it never breaks.
+-- No Durability: it never breaks.
 return {
     Name = "VestLight",
     DisplayName = "Light Vest",

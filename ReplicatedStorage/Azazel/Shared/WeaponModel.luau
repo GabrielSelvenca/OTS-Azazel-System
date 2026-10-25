@@ -1,5 +1,3 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local Rig = require(script.Parent.Rig)
 
 local WeaponModel = {}
@@ -9,13 +7,7 @@ local WEAPON_ATTRIBUTE = "AzazelWeapon"
 local PLACEHOLDER_SIZE = Vector3.new(0.35, 0.3, 2.2)
 local DEFAULT_GRIP = CFrame.Angles(math.pi / 2, 0, 0)
 
-local function assetsFolder(name: string): Instance?
-    local package = ReplicatedStorage:FindFirstChild("Azazel")
-    local assets = package and package:FindFirstChild("Assets")
-    return assets and assets:FindFirstChild(name)
-end
-
-local DEFAULT_ATTRIBUTE = "AzazelDefault"
+local assets = script.Parent.Parent.Assets
 
 local function preparePart(part: BasePart)
     part.Anchored = false
@@ -36,10 +28,8 @@ local function partsInside(model: Instance): { [BasePart]: boolean }
     return set
 end
 
--- A Motor6D that reaches out of the model (Part1 inside, Part0 empty or foreign) is a joint
--- the animation rig had to a body part: the grip on the Handle, a reload magazine on the left
--- arm. It ships with the model, C0 and C1 included, so the clips made on the rig land the same
--- way on every character; Attach only fills Part0.
+-- A Motor6D from a weapon part out to a body part (Part0 empty or foreign) is a rig joint:
+-- it ships with its C0/C1 and Attach only fills Part0.
 local function isRigJoint(joint: Instance, inside: { [BasePart]: boolean }): boolean
     if not joint:IsA("Motor6D") then
         return false
@@ -55,47 +45,28 @@ local function weldToHandle(handle: BasePart, part: BasePart)
     weld.Parent = handle
 end
 
-local function pickHandle(model: Model, inside: { [BasePart]: boolean }): BasePart?
-    local named = model:FindFirstChild(HANDLE_NAME, true)
-    if named and named:IsA("BasePart") then
-        return named
-    end
-    if model.PrimaryPart then
-        return model.PrimaryPart
-    end
-    local largest, largestVolume = nil, 0
-    for part in inside do
-        local size = part.Size
-        local volume = size.X * size.Y * size.Z
-        if volume > largestVolume then
-            largest, largestVolume = part, volume
-        end
-    end
-    return largest
+local function warnDropped(model: Model, joint: Instance, reason: string)
+    warn(`[Azazel] {model.Name}: dropped {joint.ClassName} {joint.Name}, {reason}`)
 end
 
--- Drops scripts and sorts the joints: internal ones stay, Motor6Ds out to a body part stay
--- for Attach, anything else that leaves the model is dropped with a warning. Returns the parts
--- that have a joint.
 local function dropReason(joint: Instance, inside: { [BasePart]: boolean }): string?
     local part0, part1 = (joint :: any).Part0, (joint :: any).Part1
     if not joint:IsA("Motor6D") then
         local foreign = if part0 and inside[part0] then part1 else part0
-        return if foreign
-            then `{joint.ClassName} {joint.Name} reaches {foreign.Name}: only a Motor6D can join the weapon to the character`
-            else nil
-    end
-    if part0 and part1 and inside[part0] then
-        return `Motor6D {joint.Name} points from {part0.Name} to {part1.Name}: Part1 has to be the weapon part, Part0 the body part`
+        return if foreign then `it reaches {foreign.Name}; only a Motor6D can join the weapon to the character` else nil
     end
     if not part1 then
-        return `Motor6D {joint.Name} has no Part1`
+        return "it has no Part1"
     end
-    return `Motor6D {joint.Name} has Part1 = {part1:GetFullName()}, which is not in this model: `
-        .. `point Part1 at this model's own part (the joint belongs to the model it holds), or duplicate the model the joint was built on`
+    if part0 and inside[part0] then
+        return `it points from {part0.Name} to {part1.Name}; Part0 has to be the body part, Part1 the weapon part`
+    end
+    return `its Part1 {part1:GetFullName()} is outside this model; point it at this model's own part`
 end
 
-local function keepJoints(model: Instance, inside: { [BasePart]: boolean }): { [BasePart]: boolean }
+-- Scripts go; joints inside the model and rig joints stay; anything else that leaves the model
+-- is dropped. Returns the parts that have a joint.
+local function keepJoints(model: Model, inside: { [BasePart]: boolean }): { [BasePart]: boolean }
     local jointed = {}
     for _, descendant in model:GetDescendants() do
         if descendant:IsA("LuaSourceContainer") then
@@ -110,7 +81,7 @@ local function keepJoints(model: Instance, inside: { [BasePart]: boolean }): { [
             else
                 local reason = dropReason(descendant, inside)
                 if reason then
-                    warn(`[Azazel] {model.Name}: {reason}, dropped`)
+                    warnDropped(model, descendant, reason)
                 end
                 descendant:Destroy()
             end
@@ -120,31 +91,20 @@ local function keepJoints(model: Instance, inside: { [BasePart]: boolean }): { [
 end
 
 function WeaponModel.Sanitize(model: Model): BasePart?
-    local inside = partsInside(model)
-    local handle = pickHandle(model, inside)
-    if not handle then
+    local handle = model:FindFirstChild(HANDLE_NAME, true)
+    if not handle or not handle:IsA("BasePart") then
         return nil
     end
-    handle.Name = HANDLE_NAME
-    if handle.Parent ~= model then
-        handle.Parent = model
-    end
+    handle.Parent = model
     model.PrimaryPart = handle
 
+    local inside = partsInside(model)
     local jointed = keepJoints(model, inside)
     for part in inside do
         preparePart(part)
         if part ~= handle and not jointed[part] then
             weldToHandle(handle, part)
         end
-    end
-
-    if not model:FindFirstChild("Muzzle", true) then
-        local muzzle = Instance.new("Attachment")
-        muzzle.Name = "Muzzle"
-        muzzle.Position = Vector3.new(0, 0, -handle.Size.Z / 2)
-        muzzle:SetAttribute(DEFAULT_ATTRIBUTE, true)
-        muzzle.Parent = handle
     end
     return handle
 end
@@ -168,19 +128,24 @@ function WeaponModel.Placeholder(cfg): Model
     barrel.CFrame = handle.CFrame * CFrame.new(0, 0.05, -PLACEHOLDER_SIZE.Z / 2 - 0.2)
     barrel.Parent = model
 
+    local muzzle = Instance.new("Attachment")
+    muzzle.Name = "Muzzle"
+    muzzle.Position = Vector3.new(0, 0.05, -PLACEHOLDER_SIZE.Z / 2 - 0.45)
+    muzzle.Parent = handle
+
     WeaponModel.Sanitize(model)
     return model
 end
 
 function WeaponModel.Clone(cfg): Model
-    local folder = assetsFolder("Weapons")
+    local folder = assets:FindFirstChild("Weapons")
     local source = cfg.Model and folder and folder:FindFirstChild(cfg.Model)
     local model
     if source and source:IsA("Model") then
         model = source:Clone()
         model.Name = cfg.Name
         if not WeaponModel.Sanitize(model) then
-            warn(`[Azazel] Weapon model {cfg.Model} has no BasePart, using placeholder`)
+            warn(`[Azazel] Weapon model {cfg.Model} has no BasePart named {HANDLE_NAME}, using placeholder`)
             model:Destroy()
             model = WeaponModel.Placeholder(cfg)
         end
@@ -206,50 +171,27 @@ function WeaponModel.Find(character: Instance?): Model?
     return nil
 end
 
--- A named point of the model (Muzzle, Sight), placed by hand as an Attachment or as a
--- BasePart, whichever the model brought: its world CFrame and the instance, or nil when there
--- is none. With more than one of the name, a Part wins over an Attachment and anything wins
--- over the Muzzle Sanitize made up, so a stale default saved into the asset never hides the
--- real one.
-function WeaponModel.FindPoint(model: Model?, name: string): (CFrame?, Instance?)
-    if not model then
-        return nil, nil
-    end
-    local best: Instance? = nil
-    local bestRank = 0
-    for _, descendant in model:GetDescendants() do
-        if descendant.Name ~= name then
-            continue
-        end
-        local rank = if descendant:IsA("BasePart") then 3
-            elseif descendant:IsA("Attachment") and descendant:GetAttribute(DEFAULT_ATTRIBUTE) == nil then 2
-            elseif descendant:IsA("Attachment") then 1
-            else 0
-        if rank > bestRank then
-            best = descendant
-            bestRank = rank
-        end
-    end
-    if best and best:IsA("Attachment") then
-        return best.WorldCFrame, best
-    elseif best and best:IsA("BasePart") then
-        return best.CFrame, best
-    end
-    return nil, nil
+-- A named point of the model (Muzzle, Sight): an Attachment or an invisible BasePart.
+function WeaponModel.FindPoint(model: Model?, name: string): Instance?
+    local point = model and model:FindFirstChild(name, true)
+    return if point and (point:IsA("Attachment") or point:IsA("BasePart")) then point else nil
+end
+
+function WeaponModel.PointPosition(point: Instance): Vector3
+    return if point:IsA("Attachment") then point.WorldPosition else (point :: BasePart).Position
 end
 
 function WeaponModel.MuzzlePosition(model: Model?): Vector3?
     local muzzle = WeaponModel.FindPoint(model, "Muzzle")
     if muzzle then
-        return muzzle.Position
+        return WeaponModel.PointPosition(muzzle)
     end
     local handle = model and model:FindFirstChild(HANDLE_NAME)
-    return if handle and handle:IsA("BasePart") then handle.Position else nil
+    return if handle then (handle :: BasePart).Position else nil
 end
 
--- The body part a rig joint plugs into, by name: the part its Part0 still points at (a model
--- duplicated or dragged out of the rig keeps it), else the Motor6D's own name, else the
--- convention for its Part1 (Rig.WeaponJoints).
+-- The character part a rig joint plugs into, by name: the part its Part0 still points at, else
+-- the Motor6D's own name, else Rig.WeaponJoints for its Part1.
 local function bodyPartFor(character: Model, rig, joint: Motor6D): BasePart?
     local names = { joint.Name }
     if joint.Part0 then
@@ -268,9 +210,8 @@ local function bodyPartFor(character: Model, rig, joint: Motor6D): BasePart?
     return nil
 end
 
--- Plugs every rig joint of the model into the character and parents the model. A model with no
--- joint to the character (the placeholder) gets one on the Handle with the default grip.
--- Returns the joint that carries the weapon (the Handle one when there is one).
+-- Plugs every rig joint of the model into the character and parents the model. Returns the
+-- joint that carries the weapon (the Handle one when there is one).
 function WeaponModel.Attach(character: Model, model: Model, cfg): Motor6D?
     local rig = Rig.Get(character)
     local handle = model:FindFirstChild(HANDLE_NAME)
@@ -294,7 +235,7 @@ function WeaponModel.Attach(character: Model, model: Model, cfg): Motor6D?
                 rootJoint = joint
             end
         else
-            warn(`[Azazel] {model.Name}: no body part on this character for the Motor6D of {part1.Name} ({joint.Name}); welded to the Handle instead`)
+            warnDropped(model, joint, `no body part on this character for {part1.Name}; it is welded to the Handle`)
             if part1 ~= handle then
                 weldToHandle(handle, part1)
             end
@@ -308,7 +249,7 @@ function WeaponModel.Attach(character: Model, model: Model, cfg): Motor6D?
             return nil
         end
         if cfg.Model then
-            warn(`[Azazel] {model.Name}: no Motor6D to the character inside the model, using the default grip. Drag the rig's arm joint into the model (its Part0 or its name says which body part it belongs to) and copy the model again`)
+            warn(`[Azazel] {model.Name}: no Motor6D to the character inside the model, using the default grip`)
         end
         local motor = Instance.new("Motor6D")
         motor.Name = HANDLE_NAME
@@ -338,6 +279,5 @@ function WeaponModel.Detach(character: Model)
 end
 
 WeaponModel.HandleName = HANDLE_NAME
-WeaponModel.Attribute = WEAPON_ATTRIBUTE
 
 return WeaponModel

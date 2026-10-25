@@ -9,12 +9,8 @@ local WeaponConfig = require(package.Config.WeaponConfig)
 local Remotes = require(package.Shared.Remotes)
 local WeaponModel = require(package.Shared.WeaponModel)
 
--- Weapon sounds, placed by hand under Assets/Sounds. A slot is a Sound, or a Folder of Sounds
--- played together as layers, found by the weapon override (cfg.Sounds[slot] names a child of
--- Assets/Sounds), then the weapon's own folder (Assets/Sounds/<Model>/<Slot>, also by Name or
--- DisplayName), then the shared one right under Assets/Sounds/<Slot>. Fire is per weapon;
--- ModeSelect, RemoveMag and InsertMag are shared. Everything plays at the weapon's Handle and
--- a missing slot is silence.
+-- A slot is a Sound or a Folder of layered Sounds: cfg.Sounds[slot], then Assets/Sounds/<weapon>/<slot>,
+-- then Assets/Sounds/<slot>. A missing slot is silence.
 local SoundController = {}
 
 local Signals = Client.Signals
@@ -74,8 +70,7 @@ local function handleOf(character: Model?): Instance?
     return model and model:FindFirstChild(WeaponModel.HandleName)
 end
 
--- Plays a slot at a part (2D from SoundService without one) and returns the first Sound, so a
--- caller can chain on its Ended.
+-- Plays a slot at a part (2D without one) and returns the first Sound, to chain on its Ended.
 local function play(cfg, slot: string, parent: Instance?): Sound?
     if not SoundSettings.Enabled then
         return nil
@@ -109,7 +104,6 @@ local function onState(state)
     end
     local isReloading = state.EquipState == "Reloading"
     if cfg and isReloading and not reloading then
-        -- Two sounds in a row for now, the magazine out then in; animation markers come later.
         local weapon = state.Weapon
         local function insert()
             if Client.State and Client.State.Weapon == weapon then
@@ -134,12 +128,9 @@ function SoundController.Start()
     end)
 
     Remotes.OnClient("ShotFired", function(shooter, weaponName)
-        if shooter == localPlayer or typeof(shooter) ~= "Instance" or type(weaponName) ~= "string" then
-            return
-        end
-        local cfg = WeaponConfig.Get(weaponName)
-        if cfg then
-            play(cfg, "Fire", handleOf(shooter.Character))
+        local handle = handleOf(shooter.Character)
+        if handle then
+            play(WeaponConfig.Get(weaponName), "Fire", handle)
         end
     end)
 

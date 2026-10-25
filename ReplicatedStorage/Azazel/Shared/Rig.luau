@@ -1,24 +1,19 @@
+-- Body part names per avatar rig. Only R6 is supported.
 local Rig = {}
 
 Rig.Attribute = "AzazelRig"
 
--- FirstPersonHidden: real character parts hidden in first person; the viewmodel shows the ones
--- it keeps from that list and hides the rest of its clone.
--- WeaponJoints: last resort for a rig joint of a weapon model whose Part0 was lost and whose
--- Motor6D is not named after a body part (WeaponModel.Attach). HandOffset is only for a model
--- with no joint to the character at all.
 Rig.R6 = {
     Name = "R6",
     Root = "HumanoidRootPart",
     Torso = "Torso",
     Head = "Head",
     Hand = "Right Arm",
-    OffHand = "Left Arm",
-    HandOffset = CFrame.new(0, -1, 0),
-    WeaponJoints = { Handle = "Right Arm" },
+    HandOffset = CFrame.new(0, -1, 0), -- default grip, only for a model with no joint of its own
+    WeaponJoints = { Handle = "Right Arm" }, -- last resort for a rig joint whose Part0 was lost
     ViewmodelKeep = { "HumanoidRootPart", "Torso", "Left Arm", "Right Arm" },
     ViewmodelJoints = { "RootJoint", "Left Shoulder", "Right Shoulder" },
-    FirstPersonHidden = { "Head", "Left Arm", "Right Arm" },
+    ViewmodelShown = { "Left Arm", "Right Arm" },
     LookJoints = { "Right Shoulder", "Left Shoulder", "Neck" },
     Zones = {
         Head = "Head",
@@ -31,74 +26,49 @@ Rig.R6 = {
     },
 }
 
-Rig.R15 = {
-    Name = "R15",
-    Enabled = false,
-    Root = "HumanoidRootPart",
-    Torso = "UpperTorso",
-    Head = "Head",
-    Hand = "RightHand",
-    OffHand = "LeftHand",
-    HandOffset = CFrame.new(0, -0.15, 0),
-    WeaponJoints = { Handle = "RightHand" },
-    ViewmodelKeep = { "HumanoidRootPart", "UpperTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand" },
-    ViewmodelJoints = { "Root", "Waist", "LeftShoulder", "LeftElbow", "LeftWrist", "RightShoulder", "RightElbow", "RightWrist" },
-    FirstPersonHidden = { "Head", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm", "RightHand" },
-    LookJoints = { "RightShoulder", "LeftShoulder", "Neck" },
-    Zones = {
-        Head = "Head",
-        UpperTorso = "Torso",
-        LowerTorso = "Torso",
-        HumanoidRootPart = "Torso",
-    },
-}
-
+-- The viewmodel has no Humanoid, so it carries the rig name as an attribute.
 function Rig.Detect(character: Model?): string?
     if not character then
         return nil
     end
-    local tagged = character:GetAttribute(Rig.Attribute)
-    if type(tagged) == "string" and Rig[tagged] then
-        return tagged
+    if character:GetAttribute(Rig.Attribute) == "R6" then
+        return "R6"
     end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then
-        return nil
-    end
-    return if humanoid.RigType == Enum.HumanoidRigType.R15 then "R15" else "R6"
+    return if humanoid and humanoid.RigType == Enum.HumanoidRigType.R6 then "R6" else nil
 end
 
 function Rig.Get(character: Model?)
     local rigName = Rig.Detect(character)
-    if not rigName then
-        return nil
-    end
-    return Rig[rigName]
+    return if rigName then Rig[rigName] else nil
 end
 
 function Rig.GetHand(character: Model?): BasePart?
     local rig = Rig.Get(character)
-    if not rig or not character then
+    local hand = rig and (character :: Model):FindFirstChild(rig.Hand)
+    return if hand and hand:IsA("BasePart") then hand else nil
+end
+
+-- The body part an accessory handle is welded to.
+function Rig.AccessoryPart(handle: BasePart): BasePart?
+    local weld = handle:FindFirstChild("AccessoryWeld") or handle:FindFirstChildOfClass("Weld")
+    if not weld or not weld:IsA("JointInstance") then
         return nil
     end
-    local hand = character:FindFirstChild(rig.Hand)
-    return if hand and hand:IsA("BasePart") then hand else nil
+    return if weld.Part1 == handle then weld.Part0 else weld.Part1
 end
 
 function Rig.ZoneOf(part: BasePart): string
     local parent = part.Parent
     if parent and parent:IsA("Accessory") then
-        return "Head"
-    end
-    local model = part:FindFirstAncestorOfClass("Model")
-    local rig = Rig.Get(model)
-    if rig then
-        local zone = rig.Zones[part.Name]
-        if zone then
-            return zone
+        local body = Rig.AccessoryPart(part)
+        if not body then
+            return "Torso"
         end
+        part = body
     end
-    return "Limb"
+    local rig = Rig.Get(part:FindFirstAncestorOfClass("Model"))
+    return rig and rig.Zones[part.Name] or "Limb"
 end
 
 return Rig

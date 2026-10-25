@@ -1,12 +1,5 @@
---[[
-    Builds a ragdoll copy of a character: clone, drop the root and scripts, swap every limb
-    Motor6D for a BallSocketConstraint with the limits from Settings.Ragdoll.Joints. The copy is
-    plain parts plus a dead Humanoid (kept so clothing renders), so whoever parents it owns its
-    physics. A Humanoid keeps its limbs from colliding, dead or not, so every part carries an
-    invisible collider welded to it (ColliderScale of its size) that does the colliding instead;
-    that is what keeps the body on the floor. The client builds one per death locally; nothing
-    here replicates.
-]]
+-- A local ragdoll copy of a character: limb Motor6Ds become BallSocketConstraints. The dead
+-- Humanoid stays so clothing renders.
 
 local Settings = require(script.Parent.Parent.Config.Settings)
 
@@ -63,7 +56,6 @@ local function socketFor(motor: Motor6D, colliders: { [BasePart]: BasePart })
     socket.TwistUpperAngle = limits.Twist
     socket.Parent = part1
 
-    -- Neighbours never collide, parts or their colliders, so the joint does not fight itself.
     noCollision(part0, part1, part1)
     noCollision(colliders[part0], colliders[part1], part1)
     noCollision(colliders[part0], part1, part1)
@@ -79,7 +71,7 @@ local function preparePart(part: BasePart)
     part.LocalTransparencyModifier = 0
 end
 
--- The part that actually collides, welded inside the limb: the Humanoid only touches the limb.
+-- A Humanoid's limbs never collide, even dead; this welded collider does.
 local function colliderFor(part: BasePart): BasePart
     local collider = Instance.new("Part")
     collider.Name = part.Name .. "Collider"

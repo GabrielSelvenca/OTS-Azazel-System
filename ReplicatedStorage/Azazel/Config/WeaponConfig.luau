@@ -1,57 +1,18 @@
---[[
-    Weapon configuration.
-
-    Every weapon is an entry in Config/Weapons.luau, keyed by its name, with at least Class.
-    WeaponConfig.Get(name) merges three layers, later ones winning field by field:
-    Defaults <- Classes[Class] <- the weapon entry. So a weapon only lists what differs from
-    its class, and a class only what differs from Defaults. Name is the key. The result is
-    frozen; ShotInterval and BurstInterval are derived from Rpm.
-
-    Fields (Defaults below shows every one with its default value). How the weapon sits in the
-    hand and where the arms are is not here: the Motor6D that holds the Handle ships inside the
-    weapon model, copied from the animation rig (see README, "The grip"), and the arms are the
-    animation clips alone.
-      FireModes       list of "Auto" | "Semi" | "Burst"; the first is the default
-      Rpm, Burst      rounds per minute; Burst.Count shots per press at Burst.Rpm
-      Magazine, Reserve, Reload{Time, EmptyTime}   the reload times, in seconds, count only
-                      for a weapon with no Reload clip: the clip is the timer (Shared/Animations)
-      Range           raycast length in studs (capped by Settings.Server.MaxRange)
-      Damage          Base * Zones[zone] * falloff, clamped to [Min, Max]; falloff is 1 until
-                      FalloffStart, eases with FalloffCurve to FalloffMultiplier at FalloffEnd
-                      (see Shared/Damage; Damage.Curve returns the points)
-      Accuracy        cone in degrees: Base * stance * (aim or hip multiplier) + spray;
-                      spray grows PerShot up to Max and drains after RecoveryDelay over RecoveryTime
-      Pellets         Count per shot and extra Spread per pellet (shotguns)
-      Recoil          Camera kick in degrees (Pitch up, Yaw either way) and its Recovery; the
-                      shot moves nothing else, in first person the arms stay with the camera
-      Ads             aim down sights: Fov, camera Distance and Shoulder (third person), Time to
-                      settle, AimTime before the accuracy bonus applies, Scope overlay. In first
-                      person the camera moves onto the model's Sight attachment
-      Effects         MuzzleFlash / Impact / Casing asset names and Tracer overrides
-                      (defaults in Settings.Effects.Tracer)
-      Sounds          slot -> name of a child of Assets/Sounds to use instead of the weapon's
-                      folder or the shared one (see README, "Sounds"); Animations slot ->
-                      published animation id
-]]
-
+-- Get(name) merges Defaults <- Classes[Class] <- Weapons[name], derives ShotInterval/BurstInterval and freezes.
 local Settings = require(script.Parent.Settings)
+local Weapons = require(script.Parent.Weapons)
 
 local WeaponConfig = {}
 
-local TracerDefaults = Settings.Effects.Tracer
-
-WeaponConfig.ClassOrder = { "Pistol", "SMG", "Rifle", "Shotgun", "Sniper" }
-WeaponConfig.FireModes = { "Auto", "Semi", "Burst" }
-
 WeaponConfig.Defaults = {
-    FireModes = { "Semi" },
+    FireModes = { "Semi" },                     -- "Auto" | "Semi" | "Burst"; the first is the default
     Rpm = 400,
     Burst = { Count = 3, Rpm = 900 },
     Magazine = 12,
     Reserve = 48,
-    Reload = { Mode = "Magazine", Time = 2.0, EmptyTime = 2.4 },
-    Range = 800,
-    Damage = {
+    Reload = { Time = 2.0, EmptyTime = 2.4 },   -- only without a Reload clip: the clip is the timer
+    Range = 800,                                -- capped by Settings.Server.MaxRange
+    Damage = {                                  -- see Shared/Damage
         Base = 25,
         FalloffStart = 150,
         FalloffEnd = 600,
@@ -61,7 +22,7 @@ WeaponConfig.Defaults = {
         Max = 300,
         Zones = { Head = 3, Torso = 1, Limb = 0.75 },
     },
-    Accuracy = {
+    Accuracy = {                                -- cone: Base * (Aim or Hip multiplier) + spray
         Base = 0.5,
         AimMultiplier = 0.5,
         HipMultiplier = 1,
@@ -69,40 +30,24 @@ WeaponConfig.Defaults = {
         Max = 3,
         RecoveryDelay = 0.08,
         RecoveryTime = 0.5,
-        Movement = { Stand = 1, Walk = 1, Run = 1, Air = 1, Crouch = 1 },
     },
     Pellets = { Count = 1, Spread = 0 },
     Recoil = {
-        Camera = { Pitch = 1, Yaw = 0.3, Recovery = 0.5 },
+        Camera = { Pitch = 1, Yaw = 0.3 },
     },
     Ads = {
         Fov = 60,
-        Distance = 2.5,
+        Distance = 2.5,                         -- third person camera distance while aiming
         Shoulder = Vector3.new(1.2, 0.3, 0),
         Time = 0.15,
-        AimTime = 0.12,
+        AimTime = 0.12,                         -- aiming this long before the accuracy bonus applies
         Scope = false,
     },
-    Sprint = { Allowed = true, AccuracyMultiplier = 1 },
     Effects = {
-        MuzzleFlash = "Default",
-        Impact = "Default",
-        Casing = "Default",
-        Tracer = {
-            Enabled = true,
-            Every = 1,
-            Speed = TracerDefaults.Speed,
-            Length = TracerDefaults.Length,
-            Width = TracerDefaults.Width,
-            Color = TracerDefaults.Color,
-            Style = TracerDefaults.Style,
-            Beam = TracerDefaults.Beam,
-            Trail = TracerDefaults.Trail,
-            Light = TracerDefaults.Light,
-        },
+        Tracer = { Enabled = true, Every = 1 }, -- plus every field of Settings.Effects.Tracer
     },
-    Sounds = {},
-    Animations = {},
+    Sounds = {},                                -- slot -> child of Assets/Sounds
+    Animations = {},                            -- slot -> published animation id
 }
 
 WeaponConfig.Classes = {
@@ -117,7 +62,6 @@ WeaponConfig.Classes = {
         Accuracy = { Base = 0.35, PerShot = 0.35, Max = 2.5, RecoveryTime = 0.35 },
         Recoil = { Camera = { Pitch = 1.4, Yaw = 0.4 } },
         Ads = { Fov = 65, Distance = 3 },
-        Effects = { Casing = "Pistol" },
     },
     SMG = {
         FireModes = { "Auto", "Semi" },
@@ -130,7 +74,6 @@ WeaponConfig.Classes = {
         Accuracy = { Base = 0.6, PerShot = 0.18, Max = 3.0, RecoveryTime = 0.4 },
         Recoil = { Camera = { Pitch = 0.7, Yaw = 0.35 } },
         Ads = { Fov = 62 },
-        Effects = { Casing = "Pistol" },
     },
     Rifle = {
         FireModes = { "Auto", "Semi" },
@@ -143,7 +86,6 @@ WeaponConfig.Classes = {
         Accuracy = { Base = 0.3, PerShot = 0.28, Max = 3.2, RecoveryTime = 0.45 },
         Recoil = { Camera = { Pitch = 1.1, Yaw = 0.3 } },
         Ads = { Fov = 55 },
-        Effects = { Casing = "Rifle" },
     },
     Shotgun = {
         FireModes = { "Semi" },
@@ -155,9 +97,9 @@ WeaponConfig.Classes = {
         Damage = { Base = 12, FalloffStart = 15, FalloffEnd = 90, FalloffMultiplier = 0.2, FalloffCurve = 0.8, Zones = { Head = 2 } },
         Accuracy = { Base = 1.0, PerShot = 0.5, Max = 2, RecoveryTime = 0.6 },
         Pellets = { Count = 8, Spread = 3.0 },
-        Recoil = { Camera = { Pitch = 3, Yaw = 0.8, Recovery = 0.7 } },
+        Recoil = { Camera = { Pitch = 3, Yaw = 0.8 } },
         Ads = { Fov = 65, Distance = 3 },
-        Effects = { Casing = "Shell", Tracer = { Every = 2, Length = 3 } },
+        Effects = { Tracer = { Every = 2, Length = 3 } },
     },
     Sniper = {
         FireModes = { "Semi" },
@@ -168,9 +110,9 @@ WeaponConfig.Classes = {
         Range = 2500,
         Damage = { Base = 95, FalloffStart = 600, FalloffEnd = 2000, FalloffMultiplier = 0.85, FalloffCurve = 2, Zones = { Head = 2.5 } },
         Accuracy = { Base = 0.02, HipMultiplier = 40, AimMultiplier = 1, PerShot = 1.0, Max = 3, RecoveryTime = 0.8 },
-        Recoil = { Camera = { Pitch = 4, Yaw = 0.5, Recovery = 0.8 } },
+        Recoil = { Camera = { Pitch = 4, Yaw = 0.5 } },
         Ads = { Fov = 20, Distance = 0, Scope = true, Time = 0.25, AimTime = 0.3 },
-        Effects = { Casing = "Rifle", Tracer = { Speed = 2000, Length = 10 } },
+        Effects = { Tracer = { Speed = 2000, Length = 10 } },
     },
 }
 
@@ -215,16 +157,7 @@ local function deepFreeze(value)
     return table.freeze(value)
 end
 
-local Weapons = require(script.Parent.Weapons)
 local cache = {}
-
-local function derive(cfg)
-    cfg.ShotInterval = 60 / math.max(cfg.Rpm, 1)
-    cfg.BurstInterval = 60 / math.max(cfg.Burst.Rpm, 1)
-    cfg.DisplayName = cfg.DisplayName or cfg.Name
-    cfg.Reload.EmptyTime = cfg.Reload.EmptyTime or cfg.Reload.Time
-    return cfg
-end
 
 function WeaponConfig.Exists(name: string): boolean
     return type(Weapons[name]) == "table"
@@ -241,9 +174,19 @@ function WeaponConfig.Get(name: string)
     end
     local classDefaults = WeaponConfig.Classes[raw.Class]
     assert(classDefaults, `[Azazel] Weapon {name} has unknown Class {tostring(raw.Class)}`)
-    local merged = deepMerge(deepMerge(WeaponConfig.Defaults, classDefaults), raw)
+    local base = deepMerge(WeaponConfig.Defaults, { Effects = { Tracer = Settings.Effects.Tracer } })
+    base = deepMerge(base, classDefaults)
+    local merged = deepMerge(base, raw)
+    local reload = raw.Reload
+    if reload and reload.Time and not reload.EmptyTime then
+        -- Keep the class's empty/tactical ratio instead of its absolute EmptyTime.
+        merged.Reload.EmptyTime = reload.Time * base.Reload.EmptyTime / base.Reload.Time
+    end
     merged.Name = name
-    cache[name] = deepFreeze(derive(merged))
+    merged.DisplayName = merged.DisplayName or name
+    merged.ShotInterval = 60 / math.max(merged.Rpm, 1)
+    merged.BurstInterval = 60 / math.max(merged.Burst.Rpm, 1)
+    cache[name] = deepFreeze(merged)
     return cache[name]
 end
 
@@ -258,15 +201,6 @@ function WeaponConfig.All(): { string }
     return names
 end
 
-function WeaponConfig.MaxRpm(): number
-    local maxRpm = 0
-    for _, name in WeaponConfig.All() do
-        local cfg = WeaponConfig.Get(name)
-        maxRpm = math.max(maxRpm, cfg.Rpm, cfg.Burst.Rpm)
-    end
-    return maxRpm
-end
-
 local function applyModifier(value: number, modifier)
     if type(modifier) ~= "table" then
         return value
@@ -274,12 +208,10 @@ local function applyModifier(value: number, modifier)
     return (value + (modifier.Add or 0)) * (modifier.Mul or 1)
 end
 
+-- Equipment modifiers (EquipmentConfig.StackModifiers) on top of the weapon.
 function WeaponConfig.Resolve(name: string, modifiers)
     local cfg = WeaponConfig.Get(name)
-    if not cfg then
-        return nil
-    end
-    if type(modifiers) ~= "table" or next(modifiers) == nil then
+    if not cfg or next(modifiers) == nil then
         return cfg
     end
     local resolved = deepCopy(cfg)

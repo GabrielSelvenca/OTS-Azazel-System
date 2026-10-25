@@ -1,7 +1,4 @@
-# How we commit
-
-This file explains how commits, versions and tags work in Azazel. It is short on purpose.
-If something here gets in your way, change the file together with the code.
+# Commits, versions and tags
 
 ## One commit, one version
 
@@ -13,8 +10,7 @@ after cloning:
 git config core.hooksPath .githooks
 ```
 
-Why so strict? Anyone using the package in a game needs to point at an exact version and be
-able to go back to it. If two commits share a version, "go back to 0.3.2" means nothing.
+A version maps to exactly one commit, so a game can pin and roll back.
 
 ## Version numbers
 
@@ -67,7 +63,7 @@ recoil, timings), `refactor` (same behavior, better code), `docs`, `assets` (mod
 animations, ids), `chore` (git, hooks, files that are not code).
 
 Scopes are folder or system names: `combat`, `camera`, `viewmodel`, `hud`, `animations`,
-`config`, `remotes`, `dev`, `packages`.
+`config`, `remotes`, `packages`.
 
 Examples that read well:
 
@@ -80,9 +76,10 @@ Version: 0.3.0-alpha.1
 ```
 
 ```
-feel(camera): softer recoil recovery on rifles
+feel(camera): slower recoil recovery on rifles
 
-Players said the AK felt like it snapped back. Recovery went from 0.35s to 0.6s.
+The camera settled before the next shot at 600 rpm, so sustained fire had no climb.
+Recovery went from 0.35s to 0.6s.
 
 Version: 0.3.1-alpha.2
 ```

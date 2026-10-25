@@ -25,8 +25,10 @@ Combat.Kill = Signal.new()
 
 local ATTACKER_ATTRIBUTE = "AzazelLastAttackerUserId"
 local WEAPON_ATTRIBUTE = "AzazelLastWeapon"
+local ATTACKED_AT_ATTRIBUTE = "AzazelLastAttackedAt"
 local CREATOR_TAG_LIFETIME = 2
 local WINDOW_SECONDS = 1
+local MAX_YAW_ALLOWANCE = 170
 
 local rngByPlayer: { [Player]: Random } = {}
 local lastLook: { [Player]: Vector3 } = {}
@@ -42,16 +44,11 @@ local function rngFor(player: Player): Random
 end
 
 local function reject(player: Player, reason: string)
-    if Settings.Debug.LogRejections then
-        warn(`[Azazel] Fire rejected from {player.Name}: {reason}`)
-    end
-    Inventory.PushState(player)
+    Remotes.LogRejection(player, "Fire", reason)
+    Inventory.PushStateDeferred(player)
 end
 
--- How fast the character is actually turning, in degrees per second, sampled from what the
--- server sees. The body follows the camera with a smoothing lag, so a fast flick leaves it
--- turning for a few frames behind a shot that is already on target: the yaw cone is widened by
--- this while it catches up, and by nothing at all for someone standing still.
+-- On a flick the body lags the camera; widen the yaw cone by the measured turn rate.
 local function sampleTurnRates(dt: number)
     if dt <= 0 then
         return
@@ -79,7 +76,7 @@ end
 
 local function yawAllowance(player: Player): number
     local lead = (turnRate[player] or 0) * Settings.Server.YawCatchUp
-    return Settings.Server.MaxYawDelta + math.min(lead, Settings.Server.MaxYawCatchUp)
+    return math.min(Settings.Server.MaxYawDelta + math.min(lead, Settings.Server.MaxYawCatchUp), MAX_YAW_ALLOWANCE)
 end
 
 local function isFinite(vector: Vector3): boolean
@@ -100,6 +97,7 @@ end
 local function tagAttacker(humanoid: Humanoid, attacker: Player, weaponName: string)
     humanoid:SetAttribute(ATTACKER_ATTRIBUTE, attacker.UserId)
     humanoid:SetAttribute(WEAPON_ATTRIBUTE, weaponName)
+    humanoid:SetAttribute(ATTACKED_AT_ATTRIBUTE, workspace:GetServerTimeNow())
     local existing = humanoid:FindFirstChild("creator")
     if existing then
         existing:Destroy()
@@ -218,12 +216,18 @@ local function onFire(player: Player, origin: Vector3, direction: Vector3, seq: 
     state.LastSeq = seq
 
     local now = os.clock()
+    local grace = Settings.Server.RateGrace
     local interval = cfg.ShotInterval
     local fireMode = cfg.FireModes[slot.FireModeIndex]
+    local newBurst = false
     if fireMode == "Burst" then
         interval = cfg.BurstInterval
+        newBurst = state.BurstShots >= cfg.Burst.Count or now - state.BurstStartedAt >= cfg.ShotInterval
+        if newBurst and now - state.BurstStartedAt < cfg.ShotInterval * grace then
+            return reject(player, "burst rate")
+        end
     end
-    if now - state.LastShotAt < interval * Settings.Server.RateGrace then
+    if now - state.LastShotAt < interval * grace then
         return reject(player, "fire rate")
     end
     if not withinWindow(state, if fireMode == "Burst" then math.max(cfg.Rpm, cfg.Burst.Rpm) else cfg.Rpm, now) then
@@ -245,6 +249,10 @@ local function onFire(player: Player, origin: Vector3, direction: Vector3, seq: 
     if (origin - head.Position).Magnitude > Settings.Server.MaxOriginDistance then
         return reject(player, "origin too far")
     end
+    local params = raycastParamsFor(character)
+    if workspace:Raycast(head.Position, origin - head.Position, params) then
+        return reject(player, "origin behind a wall")
+    end
     if math.abs(direction.Magnitude - 1) > 0.01 then
         return reject(player, "direction not unit")
     end
@@ -263,23 +271,19 @@ local function onFire(player: Player, origin: Vector3, direction: Vector3, seq: 
     slot.Ammo -= 1
     state.LastShotAt = now
     table.insert(state.ShotTimes, now)
+    if newBurst then
+        state.BurstStartedAt = now
+        state.BurstShots = 0
+    end
+    state.BurstShots += 1
 
-    local accuracyState = slot.Accuracy
-    Accuracy.Step(accuracyState, cfg, now)
-    local aiming = Accuracy.IsAiming(accuracyState, cfg, now)
-    local cone = Accuracy.Cone(cfg, accuracyState, aiming, "Stand")
-    Accuracy.RegisterShot(accuracyState, cfg, now)
-
+    local cone = Accuracy.Shoot(slot.Accuracy, cfg, now)
     local rng = rngFor(player)
-    local params = raycastParamsFor(character)
     local range = math.min(cfg.Range, Settings.Server.MaxRange)
     local ends, hits = {}, {}
     local pelletCount = math.max(1, cfg.Pellets.Count)
     for pellet = 1, pelletCount do
-        local aimed = Accuracy.Sample(direction, cone, rng)
-        if cfg.Pellets.Spread > 0 then
-            aimed = Accuracy.Sample(aimed, cfg.Pellets.Spread, rng)
-        end
+        local aimed = Accuracy.Pellet(direction, cone, cfg, rng)
         local result = workspace:Raycast(origin, aimed * range, params)
         local endPoint = if result then result.Position else origin + aimed * range
         ends[pellet] = endPoint
@@ -291,7 +295,7 @@ local function onFire(player: Player, origin: Vector3, direction: Vector3, seq: 
 
     local weaponModel = WeaponModel.Find(character)
     local muzzle = WeaponModel.MuzzlePosition(weaponModel) or origin
-    Remotes.FireAllExcept("ShotFired", player, player, cfg.Name, muzzle, ends, hits)
+    Remotes.FireAllExcept("ShotFired", player, player, cfg.Name, muzzle, ends)
     Combat.Shot:Fire(player, cfg, origin, ends, hits)
     debugTracers(muzzle, ends)
 
@@ -321,14 +325,16 @@ local function onReload(player: Player)
     end
     local generation = Inventory.Bump(state)
     local duration = Animations.ReloadTime(cfg, slot.Ammo <= 0)
+    slot.Accuracy.AimStartedAt = nil
     state.ReloadFrom = from
     state.EquipState = "Reloading"
     Inventory.PushState(player)
     task.delay(duration, function()
-        if Inventory.Get(player) ~= state or state.Generation ~= generation then
+        local current = state.Config
+        if Inventory.Get(player) ~= state or state.Generation ~= generation or not current then
             return
         end
-        local missing = cfg.Magazine - slot.Ammo
+        local missing = current.Magazine - slot.Ammo
         local moved = if infinite then missing else math.min(missing, slot.Reserve)
         slot.Ammo += moved
         if not infinite then
@@ -339,7 +345,6 @@ local function onReload(player: Player)
     end)
 end
 
--- Aiming only exists with the weapon armed; a relaxed weapon is lowered.
 local function onAim(player: Player, aiming: boolean)
     local state = Inventory.Get(player)
     local slot = state and Inventory.GetSlot(state)
@@ -349,11 +354,10 @@ local function onAim(player: Player, aiming: boolean)
     slot.Accuracy.AimStartedAt = if aiming then os.clock() else nil
 end
 
--- The camera pitch of a player holding a weapon, relayed so everyone sees their arms and head
--- follow it (Client/Controllers/LookController). Cosmetic: clamped, never part of a shot.
+-- Cosmetic only: clamped and relayed, never part of a shot. A holstered player may only level out.
 local function onLook(player: Player, pitch: number)
     local state = Inventory.Get(player)
-    if not state or state.EquipState == "Holstered" or pitch ~= pitch or math.abs(pitch) == math.huge then
+    if not state or (state.EquipState == "Holstered" and pitch ~= 0) or pitch ~= pitch or math.abs(pitch) == math.huge then
         return
     end
     local limits = Settings.Camera.PitchLimits

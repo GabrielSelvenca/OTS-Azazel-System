@@ -1,9 +1,4 @@
---[[
-    Damped spring on a Vector3, stepped by hand. Used for viewmodel sway, bob and recoil where
-    an instant nudge that settles back is what we want.
-
-    Damping is the ratio (1 = critically damped, no overshoot), Frequency in Hz.
-]]
+-- Damped spring on a Vector3, stepped by hand. Damping is the ratio (1 = no overshoot), Frequency in Hz.
 
 local Spring = {}
 Spring.__index = Spring
@@ -18,14 +13,6 @@ function Spring.new(damping: number, frequency: number, initial: Vector3?)
         Damping = damping,
         Frequency = frequency,
     }, Spring)
-end
-
-function Spring:Nudge(offset: Vector3)
-    self.Position += offset
-end
-
-function Spring:Impulse(velocity: Vector3)
-    self.Velocity += velocity
 end
 
 function Spring:Step(dt: number): Vector3

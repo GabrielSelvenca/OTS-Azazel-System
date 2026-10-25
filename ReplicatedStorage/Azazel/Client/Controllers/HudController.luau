@@ -16,16 +16,17 @@ local AMMO_TEXT_SIZE = 34
 local RELOADING_TEXT_SIZE = 22
 
 local crosshairLines: { Frame } = {}
-local crosshairFrame: Frame? = nil
-local hitmarker: Frame? = nil
-local ammoPanel: Frame? = nil
-local weaponLabel: TextLabel? = nil
-local ammoLabel: TextLabel? = nil
-local reserveLabel: TextLabel? = nil
-local modeLabel: TextLabel? = nil
+local crosshairFrame: Frame
+local hitmarker: Frame
+local ammoPanel: Frame
+local weaponLabel: TextLabel
+local ammoLabel: TextLabel
+local reserveLabel: TextLabel
+local modeLabel: TextLabel
 local hitmarkerToken = 0
 local lastAmmo = 0
 local lastReserve = 0
+local lastCone = 0
 
 local function buildCrosshair(parent: Instance)
     local thickness = HudSettings.Crosshair.Thickness
@@ -71,6 +72,12 @@ local function setGap(gapPixels: number)
         local dirY = frame:GetAttribute("DirY") :: number
         frame.Position = UDim2.new(0.5, dirX * offset, 0.5, dirY * offset)
     end
+end
+
+local function refreshGap()
+    local camera = workspace.CurrentCamera
+    local pixels = Accuracy.PixelsFor(lastCone, camera.FieldOfView, camera.ViewportSize.Y)
+    setGap(HudSettings.Crosshair.BaseGap + pixels)
 end
 
 local function buildHitmarker(parent: Instance)
@@ -149,38 +156,29 @@ local function buildAmmoPanel(parent: Instance)
         Text = "",
         Parent = panel,
     })
-    ammoPanel = panel
+    ammoPanel = panel :: Frame
 end
 
--- The count, or Strings.Reloading in its place while the weapon reloads.
 local function refreshAmmoPanel()
     local state = Client.State
     local reloading = state ~= nil and state.EquipState == "Reloading"
-    if ammoLabel then
-        if reloading then
-            ammoLabel.Text = Strings.Reloading
-            ammoLabel.TextColor3 = Theme.Accent
-            ammoLabel.TextSize = RELOADING_TEXT_SIZE
-            ammoLabel.Size = UDim2.new(1, 0, 0, 40)
-        else
-            ammoLabel.Text = tostring(lastAmmo)
-            ammoLabel.TextColor3 = if lastAmmo <= 0 then Theme.Danger else Theme.Text
-            ammoLabel.TextSize = AMMO_TEXT_SIZE
-            ammoLabel.Size = UDim2.new(0.6, 0, 0, 40)
-        end
+    if reloading then
+        ammoLabel.Text = Strings.Reloading
+        ammoLabel.TextColor3 = Theme.Accent
+        ammoLabel.TextSize = RELOADING_TEXT_SIZE
+        ammoLabel.Size = UDim2.new(1, 0, 0, 40)
+    else
+        ammoLabel.Text = tostring(lastAmmo)
+        ammoLabel.TextColor3 = if lastAmmo <= 0 then Theme.Danger else Theme.Text
+        ammoLabel.TextSize = AMMO_TEXT_SIZE
+        ammoLabel.Size = UDim2.new(0.6, 0, 0, 40)
     end
-    if reserveLabel then
-        reserveLabel.Visible = not reloading
-        reserveLabel.Text = if lastReserve == math.huge then "/ ∞" else `/ {lastReserve}`
-    end
+    reserveLabel.Visible = not reloading
+    reserveLabel.Text = if lastReserve == math.huge then "/ ∞" else `/ {lastReserve}`
 end
 
--- The crosshair only exists armed and from the hip: aiming a scope, or aiming in first person
--- where the sights do the job, hides it.
+-- Only Ready shows a crosshair; aiming a scope, or in first person, hides it for the sights.
 local function refreshCrosshair()
-    if not crosshairFrame then
-        return
-    end
     local state = Client.State
     local config = Client.Config
     local visible = config ~= nil and state ~= nil and state.EquipState == "Ready"
@@ -193,20 +191,12 @@ local function refreshCrosshair()
     crosshairFrame.Visible = visible
 end
 
--- Nothing of the weapon HUD shows without a weapon in the hand.
 local function refreshState(state)
     local config = Client.Config
-    local holding = config ~= nil
-    if ammoPanel then
-        ammoPanel.Visible = holding
-    end
-    if weaponLabel then
-        weaponLabel.Text = if config then config.DisplayName else ""
-    end
-    if modeLabel then
-        local mode = config and config.FireModes[state.FireMode]
-        modeLabel.Text = if mode then (Strings.FireModes[mode] or mode) else ""
-    end
+    local mode = config and config.FireModes[state.FireMode]
+    ammoPanel.Visible = config ~= nil
+    weaponLabel.Text = if config then config.DisplayName else ""
+    modeLabel.Text = if mode then (Strings.FireModes[mode] or mode) else ""
     refreshCrosshair()
     refreshAmmoPanel()
 end
@@ -218,9 +208,6 @@ local function refreshAmmo(current: number, reserve: number)
 end
 
 local function flashHitmarker(killed: boolean)
-    if not hitmarker then
-        return
-    end
     hitmarkerToken += 1
     local token = hitmarkerToken
     local color = if killed then HudSettings.HitmarkerKillColor else HudSettings.HitmarkerColor
@@ -231,7 +218,7 @@ local function flashHitmarker(killed: boolean)
     end
     hitmarker.Visible = true
     task.delay(HudSettings.HitmarkerTime, function()
-        if hitmarkerToken == token and hitmarker then
+        if hitmarkerToken == token then
             hitmarker.Visible = false
         end
     end)
@@ -242,7 +229,7 @@ function HudController.Start()
     buildCrosshair(screen)
     buildHitmarker(screen)
     buildAmmoPanel(screen)
-    setGap(HudSettings.Crosshair.BaseGap)
+    refreshGap()
     if Client.State then
         refreshState(Client.State)
         refreshAmmo(Client.State.Ammo, Client.State.Reserve)
@@ -251,13 +238,13 @@ function HudController.Start()
     Signals.StateChanged:Connect(refreshState)
     Signals.AmmoChanged:Connect(refreshAmmo)
     Signals.HitConfirmed:Connect(function(_, _, killed)
-        flashHitmarker(killed == true)
+        flashHitmarker(killed)
     end)
     Signals.SprayChanged:Connect(function(coneDegrees)
-        local camera = workspace.CurrentCamera
-        local pixels = Accuracy.PixelsFor(coneDegrees, camera.FieldOfView, camera.ViewportSize.Y)
-        setGap(HudSettings.Crosshair.BaseGap + pixels)
+        lastCone = coneDegrees
+        refreshGap()
     end)
+    workspace.CurrentCamera:GetPropertyChangedSignal("FieldOfView"):Connect(refreshGap)
     Signals.AimChanged:Connect(refreshCrosshair)
     Signals.ViewChanged:Connect(refreshCrosshair)
 end

@@ -1,5 +1,6 @@
 local TweenService = game:GetService("TweenService")
 
+local Client = require(script.Parent.Parent)
 local Quality = require(script.Parent.Parent.Quality)
 local package = script.Parent.Parent.Parent
 local Settings = require(package.Config.Settings)
@@ -10,19 +11,8 @@ local Ragdoll = require(package.Shared.Ragdoll)
 local RagdollController = {}
 
 local RagdollSettings = Settings.Ragdoll
-local EffectSettings = Settings.Effects
 
 local live: { Model } = {}
-
-local function effectsFolder(): Instance
-    local existing = workspace:FindFirstChild(EffectSettings.FolderName)
-    if not existing then
-        existing = Instance.new("Folder")
-        existing.Name = EffectSettings.FolderName
-        existing.Parent = workspace
-    end
-    return existing
-end
 
 local function hideCharacter(character: Model)
     for _, descendant in character:GetDescendants() do
@@ -45,7 +35,7 @@ local function hideCharacter(character: Model)
 end
 
 local function trimLive()
-    local maxLive = Quality.Get().RagdollMaxLive or 0
+    local maxLive = Quality.Get().RagdollMaxLive
     while #live > 0 and #live >= maxLive do
         local oldest = table.remove(live, 1)
         if oldest then
@@ -84,11 +74,12 @@ local function scheduleRemoval(ragdoll: Model)
     end)
 end
 
-local function onRagdoll(character: Instance, hitPartName: string, direction: Vector3)
+local function onRagdoll(character: Model?, hitPartName: string, direction: Vector3)
     if not RagdollSettings.Enabled or Quality.Get().RagdollMaxLive == 0 then
         return
     end
-    if typeof(character) ~= "Instance" or not character:IsA("Model") or not character.Parent then
+    -- A streamed out character arrives as nil.
+    if not character or not character.Parent then
         return
     end
     local rig = Rig.Get(character)
@@ -105,12 +96,10 @@ local function onRagdoll(character: Instance, hitPartName: string, direction: Ve
     end
     trimLive()
     table.insert(live, ragdoll)
-    ragdoll.Parent = effectsFolder()
+    ragdoll.Parent = Client.EffectsFolder()
 
-    -- The whole body moves along the shot and the part that took the killing hit a bit more,
-    -- so a chest shot from the front throws the body onto its back. Pushing the torso alone
-    -- slides it out from under the head, and the body tips toward the shooter instead.
-    local push = if typeof(direction) == "Vector3" and direction.Magnitude > 0 then direction.Unit else Vector3.zero
+    -- Every part gets the push, or the torso slides out from under the head and the body tips toward the shooter.
+    local push = if direction.Magnitude > 0 then direction.Unit else Vector3.zero
     local body = inherited + push * RagdollSettings.BodyImpulse
     for _, child in ragdoll:GetChildren() do
         if child:IsA("BasePart") then

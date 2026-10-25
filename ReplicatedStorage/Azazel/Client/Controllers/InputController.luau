@@ -9,27 +9,19 @@ local InputController = {}
 local Signals = Client.Signals
 local Keys = Settings.Keys
 
-local held: { [string]: boolean } = {}
-
 local function bind(actionName: string, onBegin: () -> ()?, onEnd: () -> ()?, ...: Enum.KeyCode | Enum.UserInputType)
     ContextActionService:BindAction(actionName, function(_, inputState)
         if inputState == Enum.UserInputState.Begin then
-            held[actionName] = true
             if onBegin then
                 onBegin()
             end
         elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
-            held[actionName] = false
             if onEnd then
                 onEnd()
             end
         end
         return Enum.ContextActionResult.Pass
     end, false, ...)
-end
-
-function InputController.IsDown(actionName: string): boolean
-    return held[actionName] == true
 end
 
 function InputController.Start()
@@ -42,9 +34,11 @@ function InputController.Start()
     end, Keys.Fire, gamepad.Fire)
 
     bind("AzazelAim", function()
-        Signals.AimInput:Fire(true)
+        Signals.AimInput:Fire(if Keys.AdsHold then true else not Client.Aiming)
     end, function()
-        Signals.AimInput:Fire(false)
+        if Keys.AdsHold then
+            Signals.AimInput:Fire(false)
+        end
     end, Keys.Aim, gamepad.Aim)
 
     bind("AzazelReload", function()
@@ -73,6 +67,7 @@ function InputController.Start()
         Signals.ReadyInput:Fire()
     end, nil, Keys.Ready)
 
+    -- With UseBackpack the Roblox hotbar picks the weapon.
     if not Settings.Server.UseBackpack then
         bind("AzazelHolster", function()
             Signals.SlotInput:Fire(0)
@@ -83,6 +78,21 @@ function InputController.Start()
                 Signals.SlotInput:Fire(index)
             end, nil, key)
         end
+
+        bind("AzazelNextWeapon", function()
+            local state = Client.State
+            if not state then
+                return
+            end
+            local total = #state.Slots
+            for step = 1, total do
+                local candidate = (state.Slot + step - 1) % total + 1
+                if state.Slots[candidate] then
+                    Signals.SlotInput:Fire(candidate)
+                    return
+                end
+            end
+        end, nil, gamepad.NextWeapon)
     end
 
     UserInputService.InputChanged:Connect(function(input, processed)
@@ -91,21 +101,6 @@ function InputController.Start()
         end
         Signals.ZoomInput:Fire(input.Position.Z)
     end)
-
-    bind("AzazelNextWeapon", function()
-        local state = Client.State
-        if not state then
-            return
-        end
-        local total = #state.Slots
-        for step = 1, total do
-            local candidate = (state.Slot + step - 1) % total + 1
-            if state.Slots[candidate] then
-                Signals.SlotInput:Fire(candidate)
-                return
-            end
-        end
-    end, nil, gamepad.NextWeapon)
 end
 
 return InputController

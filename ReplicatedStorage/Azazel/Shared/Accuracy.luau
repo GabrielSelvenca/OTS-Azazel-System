@@ -1,3 +1,4 @@
+-- Spread math shared by the server (the real roll) and the client (crosshair and predicted tracers).
 local Accuracy = {}
 
 export type State = {
@@ -16,7 +17,7 @@ function Accuracy.NewState(now: number?): State
     }
 end
 
-function Accuracy.Step(state: State, cfg, now: number)
+local function step(state: State, cfg, now: number)
     local elapsed = now - state.EvaluatedAt
     state.EvaluatedAt = now
     if elapsed <= 0 or state.Spray <= 0 then
@@ -31,24 +32,7 @@ function Accuracy.Step(state: State, cfg, now: number)
     state.Spray = math.max(0, state.Spray - decay)
 end
 
-function Accuracy.IsAiming(state: State, cfg, now: number): boolean
-    local startedAt = state.AimStartedAt
-    return startedAt ~= nil and (now - startedAt) >= cfg.Ads.AimTime
-end
-
-function Accuracy.Cone(cfg, state: State, aiming: boolean, stance: string?): number
-    local accuracy = cfg.Accuracy
-    local stanceMultiplier = accuracy.Movement[stance or "Stand"] or 1
-    local aimMultiplier = if aiming then accuracy.AimMultiplier else accuracy.HipMultiplier
-    return accuracy.Base * stanceMultiplier * aimMultiplier + state.Spray
-end
-
-function Accuracy.RegisterShot(state: State, cfg, now: number)
-    state.Spray = math.min(state.Spray + cfg.Accuracy.PerShot, cfg.Accuracy.Max)
-    state.LastShotAt = now
-end
-
-function Accuracy.Sample(direction: Vector3, coneDegrees: number, rng: Random): Vector3
+local function sample(direction: Vector3, coneDegrees: number, rng: Random): Vector3
     if coneDegrees <= 0 then
         return direction.Unit
     end
@@ -56,6 +40,31 @@ function Accuracy.Sample(direction: Vector3, coneDegrees: number, rng: Random): 
     local phi = rng:NextNumber() * math.pi * 2
     local basis = CFrame.lookAt(Vector3.zero, direction.Unit)
     return (basis * CFrame.Angles(0, 0, phi) * CFrame.Angles(theta, 0, 0)).LookVector
+end
+
+-- The cone in degrees right now; aiming counts once it has lasted Ads.AimTime.
+function Accuracy.Cone(state: State, cfg, now: number): number
+    step(state, cfg, now)
+    local accuracy = cfg.Accuracy
+    local startedAt = state.AimStartedAt
+    local aiming = startedAt ~= nil and now - startedAt >= cfg.Ads.AimTime
+    return accuracy.Base * (if aiming then accuracy.AimMultiplier else accuracy.HipMultiplier) + state.Spray
+end
+
+-- The cone this shot fires with; the shot then adds its spray.
+function Accuracy.Shoot(state: State, cfg, now: number): number
+    local cone = Accuracy.Cone(state, cfg, now)
+    state.Spray = math.min(state.Spray + cfg.Accuracy.PerShot, cfg.Accuracy.Max)
+    state.LastShotAt = now
+    return cone
+end
+
+function Accuracy.Pellet(direction: Vector3, cone: number, cfg, rng: Random): Vector3
+    local aimed = sample(direction, cone, rng)
+    if cfg.Pellets.Spread > 0 then
+        aimed = sample(aimed, cfg.Pellets.Spread, rng)
+    end
+    return aimed
 end
 
 function Accuracy.PixelsFor(coneDegrees: number, fovDegrees: number, viewportHeight: number): number

@@ -3,11 +3,9 @@ local RunService = game:GetService("RunService")
 local UserGameSettings = UserSettings():GetService("UserGameSettings")
 
 local Settings = require(script.Parent.Parent.Config.Settings)
-local Signal = require(script.Parent.Parent.Packages.Signal)
 
 local Quality = {}
 
-Quality.Changed = Signal.new()
 Quality.Level = "High"
 
 local RANK = { Low = 1, Medium = 2, High = 3 }
@@ -52,7 +50,6 @@ local function apply(level: string)
         return
     end
     Quality.Level = level
-    Quality.Changed:Fire(level, Quality.Get())
 end
 
 local function evaluate()

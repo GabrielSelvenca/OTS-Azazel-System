@@ -1,26 +1,7 @@
---[[
-    Animation playback.
-
-    One set per equipped weapon, shared by every Animator it is bound to (the character, the
-    first person viewmodel), so one clip drives all of them. Slot names, priority and loop come
-    from Assets/Manifest; a slot with no clip is simply absent and every caller tolerates that.
-
-    A looped slot is a stance (Relaxed, Idle, Aim, Sprint): playing one replaces the current
-    one. Anything else is an action (Reload, Equip...) that plays over the stance, at the speed
-    it was animated. The clip is the timer: ClipLength reads how long a KeyframeSequence under
-    Assets/Animations runs and the server waits exactly that for a reload (ReloadTime), so the
-    two always end together. That works on both sides, in Studio and in a published place, as
-    long as the KeyframeSequences stay under Assets; the config times are the fallback for a
-    weapon with no clip.
-
-    Ids: in Studio the KeyframeSequences placed by hand under Assets/Animations are registered
-    on the fly (Preload) and win; outside Studio, and with Settings.Animations
-    PreferManifestInStudio, the published ids of Config/AnimationIds are used. Resolution is
-    the weapon override (cfg.Animations) -> AnimationIds.Weapons[Name] -> AnimationIds[Class].
-]]
+-- One set per weapon, bound to every Animator (character and viewmodel). Looped slots are
+-- stances; others play over them. The clip length is the reload timer.
 
 local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local package = script.Parent.Parent
@@ -42,7 +23,6 @@ local embedded: { [string]: { [string]: string } } = {}
 local lengths: { [string]: { [string]: number } } = {}
 local preloaded = false
 
--- How long a KeyframeSequence runs, straight from its last keyframe.
 local function keyframeLength(sequence: KeyframeSequence): number
     local last = 0
     for _, child in sequence:GetChildren() do
@@ -53,22 +33,11 @@ local function keyframeLength(sequence: KeyframeSequence): number
     return last
 end
 
-function Animations.IsStance(slot: string): boolean
+local function isStance(slot: string): boolean
     return Manifest.SlotLoop[slot] == true
 end
 
-function Animations.TrackName(slot: string): string
-    return TRACK_PREFIX .. slot
-end
-
-local function animationsFolder(): Instance?
-    local root = ReplicatedStorage:FindFirstChild("Azazel")
-    local assets = root and root:FindFirstChild("Assets")
-    return assets and assets:FindFirstChild("Animations")
-end
-
--- Every folder is read for the length of its clips; a client in Studio also registers them
--- so they play from a temporary id.
+-- Lengths are read on both sides; a Studio client also registers the clips under a temporary id.
 local function scanFolder(folder: Instance, key: string, register: boolean)
     local ids = {}
     local found = {}
@@ -99,15 +68,13 @@ local function scanFolder(folder: Instance, key: string, register: boolean)
     lengths[key] = found
 end
 
--- Reads every KeyframeSequence under Assets/Animations once: their lengths on both sides, and
--- on a Studio client their temporary ids, so resolving one later never yields.
 function Animations.Preload()
     if preloaded then
         return
     end
     preloaded = true
     local register = RunService:IsClient() and RunService:IsStudio() and not Settings.Animations.PreferManifestInStudio
-    local root = animationsFolder()
+    local root = package.Assets:FindFirstChild("Animations")
     if not root then
         return
     end
@@ -132,12 +99,7 @@ function Animations.Preload()
     end
 end
 
--- How long the clip a slot resolves to runs, from the KeyframeSequence under Assets (the
--- weapon's own folder first, then the class); nil when there is none.
-function Animations.ClipLength(cfg, slot: string): number?
-    if not cfg or not slots[slot] then
-        return nil
-    end
+local function clipLength(cfg, slot: string): number?
     Animations.Preload()
     local weapon = lengths[`{WEAPONS_FOLDER}/{cfg.Name}`]
     if weapon and weapon[slot] then
@@ -147,16 +109,9 @@ function Animations.ClipLength(cfg, slot: string): number?
     return if class then class[slot] else nil
 end
 
--- The slot a reload plays: ReloadEmpty when the magazine ran dry and that clip exists, else
--- Reload.
-function Animations.ReloadSlot(cfg, empty: boolean): string
-    return if empty and Animations.ClipLength(cfg, "ReloadEmpty") then "ReloadEmpty" else "Reload"
-end
-
--- How long a reload takes: the clip, so the server timer and the animation end together; the
--- config time only for a weapon with no clip.
+-- The Reload/ReloadEmpty clip length, so the server timer and the animation end together.
 function Animations.ReloadTime(cfg, empty: boolean): number
-    local length = Animations.ClipLength(cfg, Animations.ReloadSlot(cfg, empty))
+    local length = clipLength(cfg, if empty and clipLength(cfg, "ReloadEmpty") then "ReloadEmpty" else "Reload")
     if length and length > 0 then
         return length
     end
@@ -187,10 +142,7 @@ local function publishedId(cfg, slot: string): string?
     return if type(byClass) == "string" and byClass ~= "" then byClass else nil
 end
 
-function Animations.ResolveId(cfg, slot: string): string?
-    if not cfg or not slots[slot] then
-        return nil
-    end
+local function resolveId(cfg, slot: string): string?
     if RunService:IsStudio() and not Settings.Animations.PreferManifestInStudio then
         local id = embeddedId(cfg, slot)
         if id then
@@ -216,9 +168,7 @@ end
 local Set = {}
 Set.__index = Set
 
--- With the Backpack on, the Tool on the character makes the default Animate script hold the
--- right arm with its own tool track. A stance has to win the arms, so that track is stopped
--- while one is playing.
+-- A held Tool makes the default Animate script pose the right arm; a stance has to win it.
 function Set:_dropToolTracks(animator: Animator)
     if not Settings.Animations.OverrideToolTrack or not self.Stance then
         return
@@ -245,7 +195,7 @@ function Set:_track(animator: Animator, slot: string): AnimationTrack?
         return nil
     end
     track.Priority = Manifest.SlotPriority[slot] or Enum.AnimationPriority.Action
-    track.Looped = Animations.IsStance(slot)
+    track.Looped = isStance(slot)
     entry.Tracks[slot] = track
     return track
 end
@@ -261,8 +211,6 @@ function Set:Has(slot: string?): boolean
     return slot ~= nil and self.Animations[slot] ~= nil
 end
 
--- The first slot of the list that has a clip, so a caller can ask for ReloadEmpty and fall
--- back to Reload without knowing which ones exist.
 function Set:Pick(...: string): string?
     for _, slot in { ... } do
         if self.Animations[slot] then
@@ -305,13 +253,12 @@ function Set:Unbind(animator: Animator?)
 end
 
 -- A stance replaces the one playing; an action plays over it, at its own speed.
-function Set:Play(slot: string?, options): boolean
+function Set:Play(slot: string?): boolean
     if not slot or not self.Animations[slot] then
         return false
     end
-    options = options or {}
-    local fade = options.FadeTime or Settings.Animations.FadeTime
-    if not Animations.IsStance(slot) then
+    local fade = Settings.Animations.FadeTime
+    if not isStance(slot) then
         for animator in self.Bound do
             self:_play(animator, slot, fade)
         end
@@ -333,23 +280,13 @@ function Set:Play(slot: string?, options): boolean
     return true
 end
 
-function Set:Stop(slot: string, fade: number?)
-    if self.Stance == slot then
-        self.Stance = nil
-    end
-    for _, entry in self.Bound do
-        local track = entry.Tracks[slot]
-        if track then
-            track:Stop(fade or Settings.Animations.FadeTime)
-        end
-    end
-end
-
-function Set:StopAll(fade: number?)
+function Set:StopStance()
+    local stance = self.Stance
     self.Stance = nil
     for _, entry in self.Bound do
-        for _, track in entry.Tracks do
-            track:Stop(fade or Settings.Animations.FadeTime)
+        local track = stance and entry.Tracks[stance]
+        if track then
+            track:Stop(Settings.Animations.FadeTime)
         end
     end
 end
@@ -374,19 +311,12 @@ function Animations.NewSet(cfg)
         Stance = nil,
     }, Set)
     for _, slot in Manifest.AnimationSlots do
-        local id = Animations.ResolveId(cfg, slot)
+        local id = resolveId(cfg, slot)
         if id then
             local animation = Instance.new("Animation")
-            animation.Name = Animations.TrackName(slot)
-            local ok, err = pcall(function()
-                animation.AnimationId = id
-            end)
-            if ok then
-                set.Animations[slot] = animation
-            else
-                warn(`[Azazel] {cfg.Name}: slot {slot} has a bad animation id ({tostring(err)})`)
-                animation:Destroy()
-            end
+            animation.Name = TRACK_PREFIX .. slot
+            animation.AnimationId = id
+            set.Animations[slot] = animation
         end
     end
     return set

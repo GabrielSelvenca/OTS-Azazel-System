@@ -1,19 +1,4 @@
---[[
-    Weapons held as Roblox Tools, on when Settings.Server.UseBackpack is true.
-
-    The package does not own the Backpack. It never creates, destroys, moves or edits a Tool and
-    never equips or unequips anything: the Roblox hotbar does all of that. This only watches what
-    the character holds. A Tool that names a weapon (attribute AzazelWeapon, or a Name equal to a
-    config Name or DisplayName) puts that weapon in the player's hand while it is held and takes
-    it away when it leaves; a Tool that names no weapon is none of its business.
-
-    The slot is bookkeeping (ammo, fire mode, spray) and belongs to the Tool: it is kept while the
-    Tool exists, so putting the weapon away and taking it out again keeps the magazine.
-
-    A Tool with no Handle needs RequiresHandle off to be equipped at all; that is the Tool's own
-    setting, not something the package touches.
-]]
-
+-- UseBackpack: the held Tool that names a weapon decides the weapon in hand. Never creates, edits or equips Tools.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -31,7 +16,7 @@ local WEAPON_ATTRIBUTE = "AzazelWeapon"
 local entries = {}
 
 local function log(message: string)
-    if Settings.Debug.LogInventory then
+    if Settings.Debug.Enabled and Settings.Debug.LogInventory then
         print(`[Azazel] Backpack: {message}`)
     end
 end
@@ -52,13 +37,9 @@ local function weaponNameFor(tool: Tool): string?
     return nil
 end
 
--- The slot the Tool owns, taken the first time it reaches the hand and given back when the Tool
--- is destroyed (the Roblox death cleanup, or the game removing it).
-local function slotFor(player: Player, tool: Tool, weaponName: string): number?
-    local entry = entries[player]
-    if not entry then
-        return nil
-    end
+-- The slot belongs to the Tool from the first time it is held until it is destroyed or leaves
+-- the player's Character and Backpack.
+local function slotFor(player: Player, entry, tool: Tool, weaponName: string): number?
     local slot = entry.Slots[tool]
     if slot then
         return slot
@@ -70,30 +51,55 @@ local function slotFor(player: Player, tool: Tool, weaponName: string): number?
     end
     entry.Slots[tool] = slot
     log(`{player.Name} takes {weaponName} in slot {slot} from {tool:GetFullName()}`)
-    entry.Trove:Add(tool.Destroying:Connect(function()
+
+    local toolTrove = entry.Trove:Extend()
+    local function release()
         if entries[player] ~= entry or entry.Slots[tool] ~= slot then
             return
         end
         entry.Slots[tool] = nil
+        entry.Trove:Remove(toolTrove)
         log(`{player.Name} gives slot {slot} back, {tool.Name} is gone`)
         Inventory.RemoveWeapon(player, slot)
-    end))
+    end
+    toolTrove:Connect(tool.Destroying, release)
+    toolTrove:Connect(tool.AncestryChanged, function()
+        local parent = tool.Parent
+        if parent ~= player.Character and parent ~= player:FindFirstChildOfClass("Backpack") then
+            release()
+        end
+    end)
     return slot
 end
 
+-- Several Tools can arrive in one frame; the last one held wins.
 local function onToolHeld(player: Player, tool: Tool)
+    local entry = entries[player]
     local weaponName = weaponNameFor(tool)
-    if not weaponName then
+    if not entry or not weaponName then
         return
     end
-    local slot = slotFor(player, tool, weaponName)
-    if slot then
-        Inventory.Equip(player, slot)
+    local pending = entry.PendingTool
+    entry.PendingTool = tool
+    if pending then
+        return
     end
+    task.defer(function()
+        local held = entry.PendingTool
+        entry.PendingTool = nil
+        if entries[player] ~= entry or held.Parent ~= player.Character then
+            return
+        end
+        local slot = slotFor(player, entry, held, weaponNameFor(held) :: string)
+        local state = Inventory.Get(player)
+        if slot and state and state.EquippedSlot ~= slot then
+            Inventory.Equip(player, slot)
+        end
+    end)
 end
 
--- Swapping weapons unequips the old Tool before the new one arrives, so the hand is empty for a
--- moment; only a slot that is still the equipped one on the next step really left the hand.
+-- Swapping weapons empties the hand for a moment; only a slot still equipped on the next step
+-- really left the hand.
 local function onToolDropped(player: Player, tool: Tool)
     local entry = entries[player]
     local slot = entry and entry.Slots[tool]
@@ -132,7 +138,7 @@ end
 
 local function addPlayer(player: Player)
     local trove = Trove.new()
-    local entry = { Slots = {}, Trove = trove }
+    local entry = { Slots = {}, Trove = trove, PendingTool = nil, CharacterTrove = nil }
     entries[player] = entry
 
     local function onCharacter(character: Model)

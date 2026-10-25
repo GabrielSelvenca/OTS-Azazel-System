@@ -11,21 +11,23 @@ local CharacterRig = {}
 CharacterRig.CharacterAdded = Signal.new()
 CharacterRig.Died = Signal.new()
 
-local RIG_ATTRIBUTE = "AzazelRig"
-local WEAPON_ATTRIBUTE = "AzazelWeapon"
-local HUMANOID_TIMEOUT = 10
+local WAIT_TIMEOUT = 10
 
 local function onCharacter(player: Player, character: Model)
-    local humanoid = character:WaitForChild("Humanoid", HUMANOID_TIMEOUT)
-    if not humanoid or not humanoid:IsA("Humanoid") then
+    local humanoid = character:WaitForChild("Humanoid", WAIT_TIMEOUT)
+    if player.Character ~= character or not humanoid or not humanoid:IsA("Humanoid") then
         return
     end
     local rig = Rig.Get(character)
     if not rig then
+        warn(`[Azazel] {player.Name} is not R6; Azazel only supports R6 avatars`)
         return
     end
-    character:WaitForChild(rig.Hand, HUMANOID_TIMEOUT)
-    character:SetAttribute(RIG_ATTRIBUTE, rig.Name)
+    character:WaitForChild(rig.Hand, WAIT_TIMEOUT)
+    if player.Character ~= character then
+        return
+    end
+    character:SetAttribute(Rig.Attribute, rig.Name)
     humanoid.Died:Once(function()
         CharacterRig.Died:Fire(player, character)
     end)
@@ -34,22 +36,15 @@ end
 
 function CharacterRig.Attach(character: Model, cfg): Model?
     local model = WeaponModel.Clone(cfg)
-    local motor = WeaponModel.Attach(character, model, cfg)
-    if not motor then
+    if not WeaponModel.Attach(character, model, cfg) then
         model:Destroy()
         return nil
     end
-    character:SetAttribute(WEAPON_ATTRIBUTE, cfg.Name)
     return model
 end
 
 function CharacterRig.Detach(character: Model)
     WeaponModel.Detach(character)
-    character:SetAttribute(WEAPON_ATTRIBUTE, nil)
-end
-
-function CharacterRig.GetWeaponModel(character: Model?): Model?
-    return WeaponModel.Find(character)
 end
 
 function CharacterRig.IsAlive(character: Model?): boolean

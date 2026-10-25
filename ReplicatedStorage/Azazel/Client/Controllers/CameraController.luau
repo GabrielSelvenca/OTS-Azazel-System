@@ -5,16 +5,15 @@ local Client = require(script.Parent.Parent)
 local package = script.Parent.Parent.Parent
 local Settings = require(package.Config.Settings)
 local Rig = require(package.Shared.Rig)
-local WeaponModel = require(package.Shared.WeaponModel)
 local Trove = require(package.Packages.Trove)
 local Spr = require(package.Packages.Spr)
 local Observers = require(package.Packages.Observers)
 
+-- Owns the camera only while armed (Client.IsArmed); otherwise the Roblox camera runs as usual.
 local CameraController = {}
 
 local Signals = Client.Signals
 local CameraSettings = Settings.Camera
-local ViewmodelSettings = Settings.Viewmodel
 
 local RENDER_NAME = "AzazelCamera"
 local RENDER_PRIORITY = Enum.RenderPriority.Camera.Value
@@ -29,10 +28,13 @@ local mouseDelta = Vector2.zero
 local character: Model? = nil
 local humanoid: Humanoid? = nil
 local rootPart: BasePart? = nil
-local hiddenNames: { [string]: boolean } = {}
 local visibilityPending = false
 local controlling = false
 local preferredView = CameraSettings.DefaultView
+local released = { FieldOfView = CameraSettings.FovDefault, MouseBehavior = Enum.MouseBehavior.Default, MouseIconEnabled = true }
+
+local collisionParams = RaycastParams.new()
+collisionParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local fovValue = Instance.new("NumberValue")
 fovValue.Value = CameraSettings.FovDefault
@@ -58,73 +60,20 @@ local function isFirstPerson(): boolean
     return Client.View == "First"
 end
 
-local function setHidden(part: Instance, hidden: boolean)
-    if part:IsA("BasePart") then
-        part.LocalTransparencyModifier = if hidden then 1 else 0
-    elseif part:IsA("Decal") then
-        part.Transparency = if hidden then 1 else 0
-    end
-end
-
--- The body part an accessory hangs from: its weld when it exists, else the part that carries
--- the attachment of the same name as the one in the handle.
-local function accessoryPart(accessory: Accessory): BasePart?
-    local handle = accessory:FindFirstChild("Handle")
-    if not handle or not handle:IsA("BasePart") or not character then
-        return nil
-    end
-    local weld = handle:FindFirstChildOfClass("Weld")
-    local welded = weld and (if weld.Part0 == handle then weld.Part1 else weld.Part0)
-    if welded then
-        return welded
-    end
-    local attachment = handle:FindFirstChildOfClass("Attachment")
-    if attachment then
-        for _, child in character:GetChildren() do
-            if child:IsA("BasePart") and child:FindFirstChild(attachment.Name) then
-                return child
-            end
-        end
-    end
-    return nil
-end
-
--- With ShowBody the real body stays; only the head, the arms, what hangs from them and the
--- held weapon go, and the viewmodel draws the arms. Without it the whole character goes.
-local function hiddenInFirstPerson(instance: Instance, weapon: Model?): boolean
-    if not ViewmodelSettings.ShowBody then
-        return true
-    end
-    if weapon and instance:IsDescendantOf(weapon) then
-        return true
-    end
-    local accessory = instance:FindFirstAncestorOfClass("Accessory")
-    if accessory then
-        local part = accessoryPart(accessory)
-        return part == nil or hiddenNames[part.Name] == true
-    end
-    if instance:IsA("Decal") then
-        local parent = instance.Parent
-        return parent ~= nil and hiddenNames[parent.Name] == true
-    end
-    return hiddenNames[instance.Name] == true
-end
-
+-- First person hides the whole character; the viewmodel draws the arms and the weapon.
 local function applyCharacterVisibility()
     if not character then
         return
     end
-    local hide = isFirstPerson()
-    local weapon = WeaponModel.Find(character)
+    local hidden = if isFirstPerson() then 1 else 0
     for _, descendant in character:GetDescendants() do
         if descendant:IsA("BasePart") or descendant:IsA("Decal") then
-            setHidden(descendant, hide and hiddenInFirstPerson(descendant, weapon))
+            descendant.LocalTransparencyModifier = hidden
         end
     end
 end
 
--- Accessories and the weapon arrive piece by piece (handle, then its weld); one deferred pass
--- sees them whole.
+-- Accessories and the weapon arrive piece by piece; one deferred pass sees them whole.
 local function scheduleVisibility()
     if visibilityPending then
         return
@@ -134,6 +83,12 @@ local function scheduleVisibility()
         visibilityPending = false
         applyCharacterVisibility()
     end)
+end
+
+local function setView(view: string)
+    Client.View = view
+    applyCharacterVisibility()
+    Signals.ViewChanged:Fire(view)
 end
 
 local function retarget()
@@ -150,28 +105,12 @@ local function retarget()
 end
 
 local function collide(from: Vector3, to: Vector3): Vector3
-    if not character then
-        return to
-    end
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = { character, camera() }
     local offset = to - from
     if offset.Magnitude < 0.01 then
         return to
     end
-    local result = workspace:Raycast(from, offset, params)
-    if result then
-        return result.Position + result.Normal * CameraSettings.CollisionRadius
-    end
-    return to
-end
-
--- The package owns the camera only while the weapon is armed (Ready, or a reload started
--- there). Relaxed and Holstered are plain Roblox: its camera, its cursor, its own zoom and the
--- character free to face where it walks.
-local function armed(): boolean
-    return Client.IsArmed()
+    local result = workspace:Spherecast(from, CameraSettings.CollisionRadius, offset, collisionParams)
+    return if result then from + offset.Unit * result.Distance else to
 end
 
 local function releaseControl()
@@ -181,41 +120,42 @@ local function releaseControl()
     controlling = false
     local cam = camera()
     cam.CameraType = Enum.CameraType.Custom
-    cam.FieldOfView = CameraSettings.FovDefault
-    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-    UserInputService.MouseIconEnabled = true
+    cam.FieldOfView = released.FieldOfView
+    UserInputService.MouseBehavior = released.MouseBehavior
+    UserInputService.MouseIconEnabled = released.MouseIconEnabled
     if humanoid then
         humanoid.AutoRotate = true
     end
     if isFirstPerson() then
-        Client.View = "Third"
-        applyCharacterVisibility()
-        Signals.ViewChanged:Fire(Client.View)
+        setView("Third")
     end
 end
 
--- Picks up where the Roblox camera was looking, so arming never snaps the view, and comes
--- back in the view the player last chose with V.
+-- Starts from the Roblox camera's angles so arming never snaps the view.
 local function takeControl()
     if controlling then
         return
     end
     controlling = true
-    local x, y = camera().CFrame:ToEulerAnglesYXZ()
+    local cam = camera()
+    released = {
+        FieldOfView = cam.FieldOfView,
+        MouseBehavior = UserInputService.MouseBehavior,
+        MouseIconEnabled = UserInputService.MouseIconEnabled,
+    }
+    local x, y = cam.CFrame:ToEulerAnglesYXZ()
     pitch = math.clamp(math.deg(x), CameraSettings.PitchLimits.Min, CameraSettings.PitchLimits.Max)
     yaw = math.deg(y)
     recoilPitch = 0
     recoilYaw = 0
     mouseDelta = Vector2.zero
     if preferredView == "First" and not isFirstPerson() then
-        Client.View = "First"
-        applyCharacterVisibility()
-        Signals.ViewChanged:Fire(Client.View)
+        setView("First")
     end
 end
 
 local function step(dt: number)
-    if not armed() then
+    if not Client.IsArmed() then
         releaseControl()
         return
     end
@@ -225,9 +165,10 @@ local function step(dt: number)
     UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     UserInputService.MouseIconEnabled = false
 
+    local limits = CameraSettings.PitchLimits
     local sensitivity = CameraSettings.Sensitivity * UserInputService.MouseDeltaSensitivity
     yaw -= mouseDelta.X * sensitivity
-    pitch = math.clamp(pitch - mouseDelta.Y * sensitivity, CameraSettings.PitchLimits.Min, CameraSettings.PitchLimits.Max)
+    pitch = math.clamp(pitch - mouseDelta.Y * sensitivity, limits.Min, limits.Max)
     mouseDelta = Vector2.zero
 
     local recovery = alphaFor(CameraSettings.RecoilRecovery, dt)
@@ -235,7 +176,7 @@ local function step(dt: number)
     recoilYaw -= recoilYaw * recovery
 
     local totalYaw = math.rad(yaw + recoilYaw)
-    local totalPitch = math.rad(pitch + recoilPitch)
+    local totalPitch = math.rad(math.clamp(pitch + recoilPitch, limits.Min, limits.Max))
     local rotation = CFrame.fromEulerAnglesYXZ(totalPitch, totalYaw, 0)
 
     if not rootPart then
@@ -249,20 +190,18 @@ local function step(dt: number)
     end
 
     cam.FieldOfView = fovValue.Value
-    local pivot = rootPart.Position + CameraSettings.PivotOffset
     local position
     if isFirstPerson() then
-        -- The eye is the head at rest and the weapon's Sight while aiming: the camera goes to
-        -- the weapon, the arms stay where the clip holds them.
+        -- Aiming slides the eye onto the weapon's Sight; the arms stay where the clip holds them.
         position = rootPart.Position + CameraSettings.FirstPersonOffset
         local sight = Client.SightOffset
         if sight then
             position += rotation:VectorToWorldSpace(sight * aimValue.Value)
         end
     else
+        local pivot = rootPart.Position + CameraSettings.PivotOffset
         local shoulder = shoulderValue.Value
-        local shoulderOffset = Vector3.new(shoulder.X * shoulderSide, shoulder.Y, shoulder.Z)
-        local anchor = pivot + rotation:VectorToWorldSpace(shoulderOffset)
+        local anchor = pivot + rotation:VectorToWorldSpace(Vector3.new(shoulder.X * shoulderSide, shoulder.Y, shoulder.Z))
         local desired = anchor + rotation.LookVector * -distanceValue.Value
         position = collide(collide(pivot, anchor), desired)
     end
@@ -273,22 +212,18 @@ local function onCharacter(newCharacter: Model?)
     character = newCharacter
     humanoid = nil
     rootPart = nil
-    hiddenNames = {}
     if not newCharacter then
         return
     end
+    collisionParams.FilterDescendantsInstances = { newCharacter, camera() }
     local trove = Trove.new()
     humanoid = newCharacter:WaitForChild("Humanoid", 10) :: Humanoid?
     local rig = Rig.Get(newCharacter)
     if not rig then
         return trove
     end
-    for _, name in rig.FirstPersonHidden do
-        hiddenNames[name] = true
-    end
     rootPart = newCharacter:WaitForChild(rig.Root, 10) :: BasePart?
-    yaw = select(2, camera().CFrame:ToEulerAnglesYXZ())
-    yaw = math.deg(yaw)
+    yaw = math.deg(select(2, camera().CFrame:ToEulerAnglesYXZ()))
     pitch = 0
     applyCharacterVisibility()
     trove:Connect(newCharacter.DescendantAdded, function()
@@ -309,17 +244,13 @@ function CameraController.GetAimRay(): (Vector3, Vector3)
     return cf.Position, cf.LookVector
 end
 
-function CameraController.GetYaw(): number
-    return yaw
-end
-
 function CameraController.Kick(pitchDegrees: number, yawDegrees: number)
     recoilPitch += pitchDegrees
     recoilYaw += yawDegrees
 end
 
 function CameraController.Start()
-    Client.View = CameraSettings.DefaultView
+    Client.View = "Third"
 
     UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -328,13 +259,11 @@ function CameraController.Start()
     end)
 
     Signals.ToggleViewInput:Connect(function()
-        if not armed() then
+        if not Client.IsArmed() then
             return
         end
-        Client.View = if isFirstPerson() then "Third" else "First"
-        preferredView = Client.View
-        applyCharacterVisibility()
-        Signals.ViewChanged:Fire(Client.View)
+        preferredView = if isFirstPerson() then "Third" else "First"
+        setView(preferredView)
     end)
 
     Signals.SwapShoulderInput:Connect(function()
@@ -342,7 +271,7 @@ function CameraController.Start()
     end)
 
     Signals.ZoomInput:Connect(function(direction: number)
-        if isFirstPerson() or not armed() then
+        if isFirstPerson() or not Client.IsArmed() then
             return
         end
         zoomDistance = math.clamp(zoomDistance - direction * CameraSettings.ZoomStep, CameraSettings.MinDistance, CameraSettings.MaxDistance)
@@ -351,10 +280,7 @@ function CameraController.Start()
 
     Signals.AimChanged:Connect(retarget)
     Signals.WeaponChanged:Connect(retarget)
-
-    Signals.Recoil:Connect(function(pitchDegrees, yawDegrees)
-        CameraController.Kick(pitchDegrees, yawDegrees)
-    end)
+    Signals.Recoil:Connect(CameraController.Kick)
 
     Observers.observeLocalCharacter(function(newCharacter)
         local trove = onCharacter(newCharacter)

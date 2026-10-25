@@ -3,7 +3,7 @@ local Version = {
     Minor = 2,
     Patch = 0,
     Channel = "alpha",
-    Build = 36,
+    Build = 37,
 }
 
 local RELEASE_CHANNEL = "release"
@@ -18,10 +18,6 @@ end
 
 function Version.Tag(): string
     return "v" .. Version.ToString()
-end
-
-function Version.IsStable(): boolean
-    return Version.Channel == RELEASE_CHANNEL or Version.Channel == "hotfix"
 end
 
 return Version

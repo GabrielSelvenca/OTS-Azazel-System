@@ -9,12 +9,14 @@ local Remotes = {}
 
 local FOLDER_NAME = "AzazelRemotes"
 local WAIT_TIMEOUT = 15
+local VIOLATION_HALF_LIFE = 60
+local LOG_INTERVAL = 1
 
 local slotCheck = T.intersection(T.integer, T.numberConstrained(0, Settings.Server.MaxSlots))
 local fireModeCheck = T.intersection(T.integer, T.numberConstrained(1, 8))
 
 local DEFINITIONS = {
-    Ready = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(), Rate = 2 },
+    RequestState = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(), Rate = 2 },
     Equip = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(slotCheck), Rate = 8 },
     Reload = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(), Rate = 6 },
     Aim = { Kind = "RemoteEvent", Direction = "ClientToServer", Schema = T.tuple(T.boolean), Rate = 10 },
@@ -31,7 +33,8 @@ local DEFINITIONS = {
 
 local folder: Folder? = nil
 local buckets: { [Player]: { [string]: { Tokens: number, Last: number } } } = {}
-local violations: { [Player]: number } = {}
+local violations: { [Player]: { Count: number, At: number } } = {}
+local lastLogged: { [Player]: { [string]: number } } = {}
 
 local function definition(name: string)
     local def = DEFINITIONS[name]
@@ -70,7 +73,7 @@ function Remotes.EnsureAll()
     end
 end
 
-function Remotes.Get(name: string): RemoteEvent
+function Remotes.Get(name: string): RemoteEvent | UnreliableRemoteEvent
     definition(name)
     local container = getFolder()
     local remote = container:FindFirstChild(name)
@@ -78,10 +81,13 @@ function Remotes.Get(name: string): RemoteEvent
         remote = container:WaitForChild(name, WAIT_TIMEOUT)
     end
     assert(remote, `[Azazel] Remote {name} missing; call Remotes.EnsureAll on the server first`)
-    return remote :: RemoteEvent
+    return remote :: RemoteEvent | UnreliableRemoteEvent
 end
 
 local function allow(player: Player, name: string, rate: number): boolean
+    if not player.Parent then
+        return false
+    end
     local now = os.clock()
     local playerBuckets = buckets[player]
     if not playerBuckets then
@@ -102,13 +108,34 @@ local function allow(player: Player, name: string, rate: number): boolean
     return true
 end
 
-local function violation(player: Player, name: string, reason: string)
-    local count = (violations[player] or 0) + 1
-    violations[player] = count
-    if Settings.Debug.LogRejections then
-        warn(`[Azazel] Remote {name} rejected from {player.Name}: {reason} ({count})`)
+-- At most one warn per player per remote per second, and only with Settings.Debug.Enabled.
+function Remotes.LogRejection(player: Player, name: string, reason: string)
+    local debugSettings = Settings.Debug
+    if not debugSettings.Enabled or not debugSettings.LogRejections or not player.Parent then
+        return
     end
-    if Settings.Server.KickOnAbuse and count >= Settings.Server.AbuseThreshold then
+    local now = os.clock()
+    local logged = lastLogged[player] or {}
+    lastLogged[player] = logged
+    if now - (logged[name] or -math.huge) < LOG_INTERVAL then
+        return
+    end
+    logged[name] = now
+    warn(`[Azazel] {name} rejected from {player.Name}: {reason}`)
+end
+
+-- The count halves every VIOLATION_HALF_LIFE seconds, so only a burst of abuse reaches the threshold.
+local function violation(player: Player, name: string, reason: string)
+    if not player.Parent then
+        return
+    end
+    local now = os.clock()
+    local record = violations[player] or { Count = 0, At = now }
+    record.Count = record.Count * 0.5 ^ ((now - record.At) / VIOLATION_HALF_LIFE) + 1
+    record.At = now
+    violations[player] = record
+    Remotes.LogRejection(player, name, reason)
+    if Settings.Server.KickOnAbuse and record.Count >= Settings.Server.AbuseThreshold then
         player:Kick("Azazel: too many invalid requests")
     end
 end
@@ -160,14 +187,11 @@ function Remotes.FireAllExcept(name: string, except: Player, ...)
     end
 end
 
-function Remotes.Violations(player: Player): number
-    return violations[player] or 0
-end
-
 if RunService:IsServer() then
     Players.PlayerRemoving:Connect(function(player)
         buckets[player] = nil
         violations[player] = nil
+        lastLogged[player] = nil
     end)
 end
 

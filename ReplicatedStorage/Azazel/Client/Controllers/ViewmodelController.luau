@@ -28,6 +28,7 @@ local characterTrove = nil
 local viewmodel: Model? = nil
 local viewmodelRoot: BasePart? = nil
 local viewmodelWeapon: Model? = nil
+local sightPoint: Instance? = nil
 local weaponConfig = nil
 local mouseDelta = Vector2.zero
 local bobTime = 0
@@ -42,22 +43,17 @@ local function camera(): Camera
     return workspace.CurrentCamera
 end
 
--- Where the clone stands: the place of the real body, turned with the camera about the eye.
--- The eye sits Camera.FirstPersonOffset above the root, so the root goes that far back down,
--- and a clip made on the rig lands in first person exactly as it lands on the character.
+-- The clone stands where the real body stands, turned with the camera about the eye, so a clip
+-- lands in first person exactly as it does on the character.
 local function bodyCFrame(root: BasePart, rotation: CFrame): CFrame
     local eye = root.Position + CameraSettings.FirstPersonOffset
     return CFrame.new(eye) * rotation * CFrame.new(-CameraSettings.FirstPersonOffset)
 end
 
--- The weapon's Sight relative to the eye, in the body's axes, for the camera to move onto while
--- aiming. Root space depends only on the pose, not on where the clone stands this frame.
+-- In root space, so it depends on the pose only, not on where the clone stands this frame.
 local function publishSight(root: BasePart)
-    local sight = WeaponModel.FindPoint(viewmodelWeapon, "Sight")
-    if sight then
-        Client.SightOffset = root.CFrame:PointToObjectSpace(sight.Position) - CameraSettings.FirstPersonOffset
-    else
-        Client.SightOffset = nil
+    if sightPoint then
+        Client.SightOffset = root.CFrame:PointToObjectSpace(WeaponModel.PointPosition(sightPoint)) - CameraSettings.FirstPersonOffset
     end
 end
 
@@ -84,7 +80,7 @@ local function preparePart(part: BasePart, isRoot: boolean, hidden: boolean)
     part.LocalTransparencyModifier = if hidden then 1 else 0
 end
 
--- The clone draws only the arms; the root and torso stay to carry the shoulder joints.
+-- Only the arms are drawn; the root and torso stay to carry the shoulder joints.
 local function stripClone(clone: Model, rig)
     local keepParts = {}
     for _, name in rig.ViewmodelKeep do
@@ -95,7 +91,7 @@ local function stripClone(clone: Model, rig)
         keepJoints[name] = true
     end
     local shownParts = {}
-    for _, name in rig.FirstPersonHidden do
+    for _, name in rig.ViewmodelShown do
         shownParts[name] = true
     end
     for _, child in clone:GetChildren() do
@@ -120,6 +116,7 @@ local function destroyWeapon()
         WeaponModel.Detach(viewmodel)
     end
     viewmodelWeapon = nil
+    sightPoint = nil
     Client.ViewmodelWeapon = nil
     Client.SightOffset = nil
 end
@@ -137,6 +134,7 @@ local function attachWeapon()
     end
     WeaponModel.Attach(viewmodel, model, weaponConfig)
     viewmodelWeapon = model
+    sightPoint = WeaponModel.FindPoint(model, "Sight")
     Client.ViewmodelWeapon = model
 end
 
@@ -199,7 +197,7 @@ local function retargetAds()
     local aiming = Client.Aiming and cfg ~= nil
     local seconds = if cfg then cfg.Ads.Time else 0.15
     Spr.target(adsValue, 1, 1 / math.max(seconds, 0.05), { Value = if aiming then 1 else 0 })
-    if aiming and viewmodelWeapon and not warnedNoSight[cfg.Name] and not WeaponModel.FindPoint(viewmodelWeapon, "Sight") then
+    if aiming and viewmodelWeapon and not sightPoint and not warnedNoSight[cfg.Name] then
         warnedNoSight[cfg.Name] = true
         warn(`[Azazel] {cfg.Name}: the model has no Sight (an Attachment or a Part named Sight); the camera stays at the head while aiming`)
     end
@@ -238,8 +236,6 @@ local function step(dt: number)
     end
     local bobNow = bobSpring:Step(dt)
 
-    -- The shot is the camera kick alone: the arms never move against the camera, so the sight
-    -- stays where the eye is while aiming.
     publishSight(root)
     root.CFrame = bodyCFrame(body, rotation)
         * CFrame.Angles(swayNow.Y, swayNow.X, swayNow.X * 0.5)
@@ -268,10 +264,6 @@ local function onCharacter(newCharacter: Model?)
         characterRoot = newCharacter:WaitForChild(rig.Root, 10) :: BasePart?
     end
     refresh()
-end
-
-function ViewmodelController.GetModel(): Model?
-    return viewmodel
 end
 
 function ViewmodelController.GetAnimator(): Animator?

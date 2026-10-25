@@ -8,10 +8,8 @@ local Remotes = require(package.Shared.Remotes)
 local Rig = require(package.Shared.Rig)
 local Observers = require(package.Packages.Observers)
 
--- The arms and head of an armed character follow the camera pitch, on top of whatever clip is
--- playing: the local character from its own camera, every other one from the pitch the server
--- relays (Look / LookUpdate). Motor6D transforms never replicate, so each client turns every
--- character itself.
+-- Motor6D transforms never replicate, so each client turns every armed character's arms and
+-- head itself: its own from the camera, the others from the pitch the server relays.
 local LookController = {}
 
 local LookSettings = Settings.Look
@@ -55,8 +53,7 @@ local function findJoints(character: Model): { Motor6D }
     return found
 end
 
--- Before the Animator writes this frame: put back the pose it wrote last frame, so a joint no
--- clip keys does not pile up the turn frame after frame.
+-- Put back last frame's pose first, so a joint no clip keys does not accumulate the turn.
 local function restore()
     for _, entry in entries do
         for motor, pose in entry.Base do
@@ -66,8 +63,7 @@ local function restore()
     end
 end
 
--- After the Animator wrote: turn each joint about the torso's right axis, through the joint,
--- on top of the pose.
+-- After the Animator: turn each joint about the torso's right axis, on top of the pose.
 local function apply(dt: number)
     local now = os.clock()
     for character, entry in entries do
@@ -97,18 +93,16 @@ local function apply(dt: number)
     end
 end
 
--- The local pitch, in whole degrees, at most SendRate times a second and only when it moved;
--- a keepalive well inside Timeout keeps a still aim from levelling out on the others.
+-- Whole degrees, only when it moved, plus a keepalive inside Timeout while armed; disarming
+-- sends one final 0.
 local function send()
-    if not Client.Config then
-        return
-    end
     local now = os.clock()
     if now - lastSentAt < 1 / LookSettings.SendRate then
         return
     end
-    local pitch = if Client.IsArmed() then math.round(cameraPitch()) else 0
-    if pitch == lastSent and now - lastSentAt < LookSettings.Timeout * 0.5 then
+    local armed = Client.IsArmed()
+    local pitch = if armed then math.round(cameraPitch()) else 0
+    if pitch == lastSent and (not armed or now - lastSentAt < LookSettings.Timeout * 0.5) then
         return
     end
     lastSentAt = now
@@ -137,9 +131,8 @@ function LookController.Start()
     end)
 
     Remotes.OnClient("LookUpdate", function(player, pitch)
-        local character = if typeof(player) == "Instance" and player:IsA("Player") then player.Character else nil
-        local entry = character and entries[character]
-        if entry and type(pitch) == "number" then
+        local entry = player.Character and entries[player.Character]
+        if entry then
             entry.Target = pitch
             entry.LastAt = os.clock()
         end
